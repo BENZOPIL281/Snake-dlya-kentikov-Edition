@@ -1,0 +1,4629 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Змейка для кентиков Edition</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0507;
+  font-family:"Courier New",ui-monospace,monospace;color:#e8dcc8;user-select:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#game{display:block;max-width:100%;max-height:100%;
+  width:auto;height:auto;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  box-shadow:0 0 60px rgba(140,20,20,.45),0 0 140px rgba(0,0,0,.9)}
+
+/* ---------- оверлеи ---------- */
+/* RGB-перелив лобби */
+@keyframes rgbHue{ to{ filter:hue-rotate(360deg); } }
+@keyframes rgbGlow{
+  0%   { box-shadow:0 0 34px rgba(255,60,120,.5), inset 0 0 60px rgba(0,0,0,.75); }
+  25%  { box-shadow:0 0 34px rgba(80,220,255,.5), inset 0 0 60px rgba(0,0,0,.75); }
+  50%  { box-shadow:0 0 34px rgba(120,255,140,.5), inset 0 0 60px rgba(0,0,0,.75); }
+  75%  { box-shadow:0 0 34px rgba(200,120,255,.5), inset 0 0 60px rgba(0,0,0,.75); }
+  100% { box-shadow:0 0 34px rgba(255,60,120,.5), inset 0 0 60px rgba(0,0,0,.75); }
+}
+.ov{position:absolute;inset:0;z-index:10;display:flex;
+  align-items:flex-start;            /* не center: при переполнении
+                                        center обрезает и верх, и низ,
+                                        а до низа не доскроллить */
+  justify-content:center;padding:16px;overflow:auto;cursor:auto;
+  background:
+    radial-gradient(ellipse at 22% 18%, rgba(255,40,90,.34) 0%, transparent 52%),
+    radial-gradient(ellipse at 80% 24%, rgba(60,200,255,.32) 0%, transparent 52%),
+    radial-gradient(ellipse at 26% 84%, rgba(80,255,150,.30) 0%, transparent 52%),
+    radial-gradient(ellipse at 78% 80%, rgba(190,90,255,.34) 0%, transparent 52%),
+    radial-gradient(ellipse at center, rgba(10,4,16,.93) 0%, rgba(2,2,6,.985) 74%);
+  animation: rgbHue 14s linear infinite, rgbGlow 8s ease-in-out infinite}
+.ov.hide{display:none}
+
+/* ── заставка «нажмите чтобы начать» ── */
+#intro{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;cursor:pointer;
+  background:rgba(4,2,8,.92);transition:opacity .45s ease}
+#intro.gone{opacity:0;pointer-events:none}
+#intro .hint{font-size:clamp(14px,2.2vw,20px);letter-spacing:6px;color:#ffcf3c;
+  text-shadow:0 0 14px rgba(255,207,60,.7);animation:blinkHint 1.2s ease-in-out infinite}
+#intro .sub2{margin-top:14px;font-size:12px;letter-spacing:3px;color:#6b5a48}
+@keyframes blinkHint{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ── выезд лобби: быстро вылетает, чуть «садится» обратно, как магнит ── */
+#menu.enter .panel{animation:panelIn .75s cubic-bezier(.2,.9,.25,1) both}
+@keyframes panelIn{
+  0%   { transform:translateY(-120vh) scale(.92); opacity:0; }
+  55%  { transform:translateY(0) scale(1.03); opacity:1; }
+  72%  { transform:translateY(0) scale(.985); }
+  86%  { transform:translateY(0) scale(1.008); }
+  100% { transform:translateY(0) scale(1); opacity:1; }
+}
+.panel{margin:auto;                /* центрируем по вертикали, пока влезает */
+  width:100%;max-width:660px;text-align:center;
+  border:3px solid transparent;border-radius:6px;padding:24px 20px;
+  background:
+    linear-gradient(180deg,rgba(14,10,20,.96),rgba(6,5,12,.98)) padding-box,
+    conic-gradient(from 0deg,#ff2f5e,#ffb020,#7dff5c,#3ce0ff,#a05cff,#ff2f5e) border-box;
+  box-shadow:0 0 40px rgba(160,90,255,.30),inset 0 0 70px rgba(0,0,0,.8);
+  animation: rgbHue 7s linear infinite}
+@keyframes rgbText{ to{ background-position: 300% center; } }
+h1{font-size:clamp(28px,7vw,56px);letter-spacing:5px;line-height:1.06;
+  background:linear-gradient(90deg,#ff2f5e,#ffb020,#7dff5c,#3ce0ff,#a05cff,#ff2f5e);
+  background-size:300% auto;
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(200,120,255,.55));
+  animation: rgbText 8s linear infinite}
+
+/* ЛОГОТИП
+   Радужное слово крупно, два подстрочника мельче золотом.
+   Порядок важен: общее правило для span идёт ПЕРВЫМ. Специфичность
+   у него та же, что у .sub и .ed, поэтому побеждает то, что ниже.
+   Раньше h1 span стоял последним и перебивал их размеры. */
+h1 span{display:block;color:#ffcf3c;margin-top:6px;
+  -webkit-text-fill-color:#ffcf3c;
+  text-shadow:0 0 16px rgba(255,207,60,.75),0 2px 0 #7a5a06;
+  animation:none}
+h1 .sub{font-size:.42em;letter-spacing:3px;margin-top:4px}
+
+/* отбиваем логотип от текста: иначе «Edition» читается как
+   заголовок первого абзаца, а не как часть названия */
+h1{margin-bottom:18px}
+h2{font-size:13px;letter-spacing:4px;margin:16px 0 6px;text-transform:uppercase;
+  color:#d9c8ff;
+  text-shadow:0 0 12px rgba(160,110,255,.75),0 0 24px rgba(80,200,255,.4)}
+p.lead{font-size:14px;line-height:1.75;color:#c3ab8d;margin:6px 0 10px}
+.lead:last-of-type{margin-bottom:4px}
+
+p.lead b{color:#ffcf3c}
+.btn{display:inline-block;margin:18px 8px 4px;padding:14px 36px;cursor:pointer;
+  border:2px solid #ff3b18;border-radius:3px;background:rgba(90,14,8,.5);
+  color:#ff8a6a;font-size:17px;letter-spacing:4px;text-transform:uppercase;
+  font-family:inherit;font-weight:bold;transition:.12s;
+  box-shadow:0 0 20px rgba(255,60,20,.28),inset 0 0 22px rgba(255,60,20,.12)}
+.btn:hover,.btn:active{background:rgba(190,40,18,.6);color:#fff;
+  box-shadow:0 0 34px rgba(255,60,20,.6),inset 0 0 26px rgba(255,120,60,.3)}
+.btn.alt{border-color:#5a6d15;color:#c2d86a;background:rgba(30,40,8,.5)}
+.btn.alt:hover{background:rgba(70,95,14,.6);color:#fff;
+  box-shadow:0 0 30px rgba(160,200,40,.5)}
+.ctl{margin-top:16px;padding-top:14px;border-top:1px solid rgba(200,150,90,.22);
+  font-size:12px;line-height:2.1;color:#9c8a72}
+kbd{display:inline-block;background:rgba(255,207,60,.1);border:1px solid rgba(255,207,60,.35);
+  border-radius:3px;padding:1px 7px;color:#ffcf3c;font-size:11px;margin:0 2px}
+.music b{color:#c2d86a}
+#scoreBig{font-size:clamp(26px,7vw,48px);color:#ffcf3c;letter-spacing:3px;
+  text-shadow:0 0 22px rgba(255,207,60,.7);margin:8px 0}
+#taunt{font-size:15px;line-height:1.8;color:#ff8a6a;margin:10px 0 2px}
+#stats{font-size:13px;color:#9c8a72;line-height:2}
+
+/* ---- выбор режима ---- */
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 4px}
+.mode{cursor:pointer;font-family:inherit;text-align:left;padding:10px 12px;
+  border:2px solid #4a2a20;border-radius:3px;background:rgba(26,14,12,.78);
+  color:#a8907a;transition:.12s}
+.mode b{display:block;font-size:13px;letter-spacing:1.5px;color:#c9a06a}
+.mode i{display:block;font-size:10.5px;font-style:normal;color:#7c6a58;
+  margin-top:3px;line-height:1.35}
+.mode:hover{border-color:#8a5a40}
+.mode.on{border-color:#ff3b18;background:rgba(120,26,14,.6);
+  box-shadow:0 0 18px rgba(255,60,20,.32)}
+.mode.on b{color:#ff8a6a}
+.mode.on i{color:#b39272}
+@media(max-width:540px){.modes{grid-template-columns:1fr}}
+
+/* ---------------- ЭКВАЛАЙЗЕР В ЛОББИ ----------------
+   Полоски пляшут в такт будущей песне. Сейчас — статичная анимация,
+   к ней легко подцепить реальный анализатор через Web Audio. */
+/* подпись играющего трека */
+/* эквалайзер занимает отдельную строку во всю ширину панели */
+.nowplaying{display:flex;align-items:center;gap:9px;margin:12px 0 4px;
+  font-size:12px;letter-spacing:1px;color:#9c8a72;line-height:1.7;
+  justify-content:center}
+.nowplaying span{text-align:center}
+.nowplaying b{color:#d9c8ff;
+  text-shadow:0 0 12px rgba(160,110,255,.7)}
+#eqMini,#eqMini2{display:block;width:120px;height:18px;border-radius:3px;
+  background:rgba(6,6,12,.6);flex:none;
+  box-shadow:0 0 10px rgba(160,90,255,.35),
+             inset 0 0 6px rgba(0,0,0,.6)}
+
+/* ---------------- плеер ---------------- */
+.player{margin:12px 0 4px;display:flex;flex-direction:column;gap:9px}
+
+.pline{display:flex;align-items:center;gap:9px}
+.ptime{font-size:11px;color:#8a7a5c;min-width:38px;text-align:center;
+  font-variant-numeric:tabular-nums;letter-spacing:.5px}
+.ptime:first-child{text-align:right}
+.ptime:last-child{text-align:left}
+
+/* полоса перемотки: тонкая, в цвет панели */
+.pbar{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;
+  background:rgba(200,150,90,.22);outline:none;cursor:pointer}
+.pbar::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+  border-radius:50%;background:#ffcf3c;cursor:pointer;
+  box-shadow:0 0 8px rgba(255,207,60,.8)}
+.pbar::-moz-range-thumb{width:11px;height:11px;border:none;border-radius:50%;
+  background:#ffcf3c;cursor:pointer;box-shadow:0 0 8px rgba(255,207,60,.8)}
+.pbar::-moz-range-track{height:4px;border-radius:2px;
+  background:rgba(200,150,90,.22)}
+
+.pctrl{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}
+
+.pbtn{cursor:pointer;font-family:inherit;font-size:13px;line-height:1;
+  width:32px;height:30px;border-radius:3px;padding:0;transition:.12s;
+  border:1px solid rgba(200,150,90,.28);
+  background:rgba(24,14,20,.7);color:#c9a06a;
+  display:flex;align-items:center;justify-content:center;position:relative}
+.pbtn:hover{border-color:rgba(255,207,60,.6);color:#ffcf3c;
+  background:rgba(40,24,30,.85)}
+.pbtn:active{transform:translateY(1px)}
+
+.pbtn.main{width:42px;height:34px;font-size:15px;
+  border-color:rgba(255,207,60,.45);color:#ffcf3c;
+  background:rgba(40,26,14,.8)}
+.pbtn.main:hover{box-shadow:0 0 14px rgba(255,207,60,.35)}
+
+/* режимы плейлиста: активный подсвечен */
+.pbtn.pmod.on{border-color:#ffcf3c;color:#ffcf3c;
+  background:rgba(60,38,12,.9);
+  box-shadow:0 0 12px rgba(255,207,60,.35)}
+.pbtn.pmod i{position:absolute;right:2px;bottom:0;font-size:8px;
+  font-style:normal;font-weight:bold;opacity:.9}
+
+.psep{width:1px;height:20px;background:rgba(200,150,90,.25);margin:0 3px}
+
+.ptotal{font-size:11px;color:#8a7a5c;margin-left:4px;
+  font-variant-numeric:tabular-nums}
+
+/* ---- своя музыка ---- */
+.musicbox{display:flex;flex-direction:column;align-items:center;gap:9px;
+  margin:10px 0 8px}
+
+.addbtn{cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:1.6px;
+  padding:7px 16px;border-radius:3px;transition:.14s;
+  border:1px dashed rgba(160,120,255,.45);
+  background:rgba(30,18,44,.55);color:#c9b0ff}
+.addbtn:hover{border-color:rgba(160,120,255,.85);
+  background:rgba(48,28,70,.7);color:#e6dbff;
+  box-shadow:0 0 16px rgba(160,110,255,.35)}
+.addbtn.hasfile{border-style:solid;border-color:rgba(140,255,190,.55);
+  color:#b6ffd4}
+
+.mopts{display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:center}
+.mopt{display:flex;align-items:center;gap:6px;cursor:pointer;
+  font-size:11px;letter-spacing:.6px;color:#9c8a72;transition:.12s}
+.mopt:hover{color:#c9b0ff}
+.mopt.on{color:#d9c8ff}
+.mopt input{accent-color:#a06cff;cursor:pointer;margin:0;flex:none}
+.mopt span{pointer-events:none}
+
+.mhint{font-size:10px;letter-spacing:1px;color:#8a7a5c;
+  min-height:13px;line-height:1.4;text-align:center}
+.mhint.err{color:#ff7a5c}
+
+@media(max-width:480px){
+  .nowplaying{font-size:11px;gap:7px}
+  #eqMini,#eqMini2{width:96px;height:15px}
+  .mopt{font-size:10px;gap:4px}
+  .mopts{gap:5px 10px}
+}
+
+/* ---------------- настройки звука ---------------- */
+.settings{margin:10px 0 2px;border-top:1px solid rgba(200,150,90,.22);
+  padding-top:14px;text-align:left}
+.srow{display:flex;align-items:center;gap:10px;margin:11px 0}
+.slabel{font-size:11px;letter-spacing:2px;color:#c9a06a;width:62px;flex:none}
+.sw{cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:1px;
+  padding:5px 9px;border:2px solid #5a6d15;border-radius:3px;
+  background:rgba(30,40,8,.5);color:#c2d86a;min-width:54px;flex:none;
+  transition:.12s;font-weight:bold}
+.sw:hover{filter:brightness(1.35)}
+.sw.off{border-color:#6d1512;background:rgba(40,10,12,.6);color:#7a5a4a}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;
+  height:6px;border-radius:3px;outline:none;cursor:pointer;border:none;
+  background:linear-gradient(90deg,#ff3b18 0%,#ffcf3c 100%)}
+input[type=range].off{background:#3a2a24}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;
+  width:17px;height:17px;border-radius:50%;background:#e8dcc8;
+  border:2px solid #6d1512;cursor:pointer;
+  box-shadow:0 0 9px rgba(255,60,20,.75)}
+input[type=range]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;
+  background:#e8dcc8;border:2px solid #6d1512;cursor:pointer;
+  box-shadow:0 0 9px rgba(255,60,20,.75)}
+.sval{font-size:11px;color:#8a7a5c;width:38px;text-align:right;flex:none;
+  font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1152" height="888"></canvas>
+
+  <!-- ЗАСТАВКА: нажмите любую кнопку, чтобы начать -->
+  <div id="intro">
+    <div class="hint">НАЖМИТЕ ЛЮБУЮ КНОПКУ, ЧТОБЫ НАЧАТЬ</div>
+    <div class="sub2">клик · пробел · любая клавиша</div>
+  </div>
+
+  <!-- ЛОББИ -->
+  <div class="ov" id="menu">
+    <div class="panel">
+      <h1>Змейка<br><span class="sub">(Для кентиков Edition)</span></h1>
+
+      <p class="lead">
+        Привет. И это бета версия, разрабатываемая с помощью ии.<br>
+        Тут всё сделано на моё усмотрение, начиная от стиля,<br>
+        заканчивая просчётом приоритета цели и добавлением собственной музыки вместе с кучей игровых условностей. (так что не нейро слоп "сосать")<br>
+        Буду рад, если предложишь микро идейки для этой игрульки.<br>
+        Довёл игру уже до играбельности, после кучи патчей и исправлений (но полностью багов пока избежать не удалось, парочку есть)<br>
+        Бля, забыл сказать, самое сложное было сделать плеер, это блять буквально POV: кончилась подписка на Claude Opus 5.5</p>
+
+      <h2>управление</h2>
+      <div class="ctl">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> или <kbd>↑↓←→</kbd> — ползти<br>
+        <b>ОТСТРЕЛ САМ</b>: червяк бьёт по ближайшей стене пулей из головы (1 патрон, 2с)<br>
+        <kbd>ESC</kbd> — пауза &nbsp; <kbd>R</kbd> — заново<br>
+        <b style="color:#7cf0ff">ГОЛОД</b>: сферу нужно есть раз в 30 секунд, иначе смерть<br>
+        На телефоне: <b>свайпы</b>
+      </div>
+      <h2>настройки</h2>
+      <div class="settings">
+        <div class="srow">
+          <span class="slabel">ЗВУКИ</span>
+          <button class="sw" id="swSfx">ВКЛ</button>
+          <input type="range" id="volSfx" min="0" max="100" value="70">
+          <span class="sval" id="valSfx">70%</span>
+        </div>
+        <div class="srow">
+          <span class="slabel">МУЗЫКА</span>
+          <button class="sw" id="swMus">ВКЛ</button>
+          <input type="range" id="volMus" min="0" max="100" value="55">
+          <span class="sval" id="valMus">55%</span>
+        </div>
+      </div>
+      <h2>сложность</h2>
+      <div class="modes" id="modes">
+        <button class="mode" data-i="0"><b>НИЗКАЯ</b>
+          <i>скорость 5.0 · этап на 14-й секунде</i></button>
+        <button class="mode" data-i="1"><b>СРЕДНЯЯ</b>
+          <i>скорость 6.3 · этап на 11-й секунде</i></button>
+        <button class="mode" data-i="2"><b>ВЫСОКАЯ</b>
+          <i>скорость 7.9 · этап на 9-й секунде</i></button>
+        <button class="mode" data-i="3"><b>ОЧЕНЬ ВЫСОКАЯ</b>
+          <i>скорость 9.5 · этап на 7-й секунде</i></button>
+      </div>
+      <div class="nowplaying" id="nowPlaying">
+        <canvas id="eqMini" width="320" height="48"></canvas>
+        <span>Играет: <b class="trackname">Pooka - MAYBE SO/MUGENMIRAI</b></span>
+      </div>
+
+      <!-- ── ПЛЕЕР ── -->
+      <div class="player" id="player">
+        <div class="pline">
+          <span class="ptime" id="tNow">0:00</span>
+          <input class="pbar" id="pSeek" type="range" min="0" max="1000" value="0" step="1">
+          <span class="ptime" id="tLeft">-0:00</span>
+        </div>
+
+        <div class="pctrl">
+          <button class="pbtn" id="pPrev" type="button" title="предыдущая">&#9198;</button>
+          <button class="pbtn main" id="pPlay" type="button" title="пауза">&#10074;&#10074;</button>
+          <button class="pbtn" id="pNext" type="button" title="следующая">&#9197;</button>
+
+          <span class="psep"></span>
+
+          <button class="pbtn pmod on" id="mCycle" type="button" title="по порядку">&#8635;</button>
+
+          <span class="ptotal" id="tTotal">0:00</span>
+        </div>
+
+      </div>
+
+      <!-- своя музыка: загрузка файла и выбор источника -->
+      <div class="musicbox">
+        <button class="addbtn" id="addMusicBtn" type="button">+ ДОБАВИТЬ МУЗЫКУ</button>
+        <input type="file" id="musicFile" accept=".mp3,audio/mpeg" hidden>
+        <div class="mopts">
+          <label class="mopt"><input type="radio" class="musradio" name="musmodeL" value="user"><span>только своя</span></label>
+          <label class="mopt"><input type="radio" class="musradio" name="musmodeL" value="both"><span>игровая и своя</span></label>
+          <label class="mopt"><input type="radio" class="musradio" name="musmodeL" value="game" checked><span>только игровая</span></label>
+        </div>
+        <div class="mhint" id="musicHint"></div>
+      </div>
+      <button class="btn" id="startBtn">НАЧАТЬ ЗАБЕГ</button>
+      
+    </div>
+  </div>
+
+  <!-- ПАУЗА -->
+  <div class="ov hide" id="pause">
+    <div class="panel">
+      <h1 style="font-size:clamp(24px,6vw,44px)">ЗАДУМАЛСЯ</h1>
+      <p class="lead">Игра на паузе.</p>
+      <div class="nowplaying">
+        <canvas id="eqMini2" width="320" height="48"></canvas>
+        <span>Играет: <b class="trackname">Pooka - MAYBE SO/MUGENMIRAI</b></span>
+      </div>
+
+      <!-- плеер на паузе: тот же, что в лобби, но с суффиксом 2.
+           Состояние общее — переключение здесь меняет и лобби -->
+      <div class="player" id="player2">
+        <div class="pline">
+          <span class="ptime" id="tNow2">0:00</span>
+          <input class="pbar" id="pSeek2" type="range" min="0" max="1000" value="0" step="1">
+          <span class="ptime" id="tLeft2">-0:00</span>
+        </div>
+
+        <div class="pctrl">
+          <button class="pbtn" id="pPrev2" type="button" title="предыдущая">&#9198;</button>
+          <button class="pbtn main" id="pPlay2" type="button" title="пауза">&#10074;&#10074;</button>
+          <button class="pbtn" id="pNext2" type="button" title="следующая">&#9197;</button>
+
+          <span class="psep"></span>
+
+          <button class="pbtn pmod on" id="mCycle2" type="button" title="по порядку">&#8635;</button>
+
+          <span class="ptotal" id="tTotal2">0:00</span>
+        </div>
+      </div>
+
+            <!-- ── СВОЯ МУЗЫКА: можно добавить прямо во время игры ── -->
+      <div class="musicbox">
+        <button class="addbtn" id="addMusicBtn2" type="button">+ ДОБАВИТЬ МУЗЫКУ</button>
+        <input type="file" id="musicFile2" accept=".mp3,audio/mpeg" hidden>
+        <div class="mopts">
+          <label class="mopt"><input type="radio" class="musradio" name="musmodeP" value="user"><span>только своя</span></label>
+          <label class="mopt"><input type="radio" class="musradio" name="musmodeP" value="both"><span>игровая и своя</span></label>
+          <label class="mopt"><input type="radio" class="musradio" name="musmodeP" value="game" checked><span>только игровая</span></label>
+        </div>
+        <div class="mhint" id="musicHint2"></div>
+      </div>
+
+<div class="settings">
+        <div class="srow">
+          <span class="slabel">ЗВУКИ</span>
+          <button class="sw" id="swSfx2">ВКЛ</button>
+          <input type="range" id="volSfx2" min="0" max="100" value="70">
+          <span class="sval" id="valSfx2">70%</span>
+        </div>
+        <div class="srow">
+          <span class="slabel">МУЗЫКА</span>
+          <button class="sw" id="swMus2">ВКЛ</button>
+          <input type="range" id="volMus2" min="0" max="100" value="55">
+          <span class="sval" id="valMus2">55%</span>
+        </div>
+      </div>
+      <button class="btn" id="resumeBtn">ПОЛЗТИ ДАЛЬШЕ</button>
+      <button class="btn alt" id="quitBtn">В ЛОББИ</button>
+    </div>
+  </div>
+
+  <!-- КОНЕЦ -->
+  <div class="ov hide" id="over">
+    <div class="panel">
+      <h1 style="font-size:clamp(26px,7vw,50px)" id="overTitle">ТЫ ВСЁ</h1>
+      <div id="scoreBig">0</div>
+      <p id="taunt"></p>
+      <div id="stats"></div>
+      <button class="btn" id="againBtn">ЕЩЁ РАЗ</button>
+      <button class="btn alt" id="menuBtn">В ЛОББИ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   ЗМЕЙКА ДЛЯ КЕНТИКОВ · Edition (бета)
+   Оригинальная игра. Вся графика рисуется процедурно на canvas,
+   все звуки синтезируются через WebAudio — ни одного внешнего файла,
+   кроме твоего трека в лобби.
+   ========================================================================== */
+
+
+/* ------------------------------------------------------------------ сетка */
+const TILE = 32, COLS = 36, ROWS = 24;   /* арена 1152 x 768 */
+const ARENA_W = COLS*TILE, ARENA_H = ROWS*TILE;   // 960 x 640
+const HUD_H = 120;
+/* Голод: если не съесть сферу за это время — смерть. 30 секунд названо в задаче,
+   но по факту в HUD виден обратный отсчёт, так что значение легко настроить. */
+const HUNGER_MAX = 30;                                 // полоса статуса снизу:
+                                                   // поднята с 80, чтобы
+                                                   // нижние строки не срезались
+const W = ARENA_W, H = ARENA_H + HUD_H;
+
+const cv  = document.getElementById('game');
+const g2  = cv.getContext('2d');
+g2.imageSmoothingEnabled = false;
+
+/* типы клеток */
+const FLOOR=0, BRICK=1, TECH=2, BARREL=3;
+const MAX_HEARTS = 3;       /* потолок сердец — больше не выдаётся никогда */
+const AMMO_MAX   = 30;      /* потолок патронов */
+const BULLET_SPEED = 620;   /* пикс/сек — пуля летит от головы к стене */
+const ROLL_AMMO = 20;       /* шанс патрона 1 к 20 */
+const ROLL_MED  = 15;       /* шанс аптечки 1 к 15 */
+const BARREL_CAP = 26;      /* больше бочек арена не переваривает */
+
+/* ---------------------------------------------------------- РЕЖИМЫ СКОРОСТИ ==
+   Выбираются в лобби. От режима зависит темп змейки, как быстро арена
+   обрастает и как часто сыплется порча.
+   ============================================================================ */
+const MODES = [
+  /* soulDelay: новая сфера появляется СРАЗУ после сбора (0.15с),
+     как и просили — на арене всегда ровно одна. */
+  /* huntCap   — сколько Врагов держится на арене одновременно
+     huntSpeed — скорость их шага (клеток в секунду)
+     huntAdd   — сколько новых лезет за каждый этап
+     huntersFrom — с какого этапа они вообще появляются */
+  { id:'slabak',   name:'НИЗКАЯ',          col:'#7cf0ff', speed:5.0,
+    esc0:14, escStep:50, blocks:1, barrels:1, huntersFrom:3,
+    huntCap:2, huntSpeed:0.55, huntAdd:1,
+    corr:12.0, corrMin:7.5, pickCd:1.4, medCap:2, ammoCap:2, soulDelay:0.15 },
+
+  { id:'chervyak', name:'СРЕДНЯЯ',         col:'#8fe25c', speed:6.3,
+    esc0:11, escStep:42, blocks:2, barrels:2, huntersFrom:2,
+    huntCap:4, huntSpeed:0.80, huntAdd:1,
+    corr:9.5,  corrMin:5.5, pickCd:1.2, medCap:2, ammoCap:2, soulDelay:0.15 },
+
+  { id:'sinya',    name:'ВЫСОКАЯ',         col:'#ffcf3c', speed:7.9,
+    esc0:9,  escStep:35, blocks:2, barrels:3, huntersFrom:1,
+    huntCap:6, huntSpeed:1.05, huntAdd:2,
+    corr:7.5,  corrMin:4.5, pickCd:1.1, medCap:2, ammoCap:1, soulDelay:0.15 },
+
+  { id:'krutyak',  name:'ОЧЕНЬ ВЫСОКАЯ',   col:'#ff3b18', speed:9.5,
+    esc0:7,  escStep:28, blocks:3, barrels:4, huntersFrom:1,
+    huntCap:9, huntSpeed:1.35, huntAdd:3,
+    corr:5.8,  corrMin:3.5, pickCd:1.0, medCap:2, ammoCap:1, soulDelay:0.15 }
+];      /* больше бочек арена не переваривает */
+
+/* ------------------------------------------------------------------ утилы */
+const rnd  = (n) => (Math.random()*n)|0;
+const clamp= (v,a,b) => v<a?a:v>b?b:v;
+const pick = (a) => a[(Math.random()*a.length)|0];
+
+/* вспомогательная функция: создать canvas нужного размера */
+function mkCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
+
+/* ---------------------------------------------------------------------------
+   ЕДИНАЯ КАРТА — «СТРАНА ЧУДЕС».
+   Поле полностью чёрное. Стены чёрные, но по их краю бежит радужная кайма:
+   цвет зависит от позиции клетки и от времени, поэтому перелив идёт
+   по периметру и по всем блокам разом.
+   ========================================================================== */
+
+/* чёрная плитка стены — почти без деталей, только чтобы читался объём */
+function texBlackWall(){
+  const c = mkCanvas(TILE,TILE), g = c.getContext('2d');
+  g.fillStyle = '#050507'; g.fillRect(0,0,TILE,TILE);
+
+  for (let i=0;i<34;i++){
+    const v = 6 + rnd(6);
+    g.fillStyle = `rgb(${v},${v},${v+1})`;
+    g.fillRect(rnd(TILE), rnd(TILE), 2+rnd(5), 2+rnd(4));
+  }
+  return c;
+}
+
+/* чёрный пол — чуть светлее стен, с еле заметной сеткой */
+function texBlackFloor(seed){
+  const c = mkCanvas(TILE,TILE), g = c.getContext('2d');
+  g.fillStyle = '#08080b'; g.fillRect(0,0,TILE,TILE);
+
+  for (let i=0;i<60;i++){
+    const v = 8 + rnd(7) + seed;
+    g.fillStyle = `rgb(${v},${v},${v+2})`;
+    g.fillRect(rnd(TILE), rnd(TILE), 1+rnd(4), 1+rnd(3));
+  }
+  g.strokeStyle = 'rgba(255,255,255,.03)';
+  g.lineWidth = 1;
+  g.strokeRect(.5,.5,TILE-1,TILE-1);
+  return c;
+}
+
+/* единственная карта */
+const MAPS = [
+  { id:'wonder', name:'СТРАНА ЧУДЕС', col:'#c06cff', desc:'чёрное поле и радужные стены' }
+];
+
+const TEXCACHE = {};
+
+function buildTexSet(id){
+  if (TEXCACHE[id]) return Object.assign({}, TEXCACHE[id]);
+  const set = {
+    brick:  texBlackWall(),
+    tech:   texBlackWall(),
+    floorA: texBlackFloor(0),
+    floorB: texBlackFloor(3)
+  };
+  TEXCACHE[id] = set;
+  return set;
+}
+
+/* TXT — рабочая копия, а не ссылка на кэш */
+const TXT = Object.assign({}, buildTexSet('wonder'));
+
+function applyMapTextures(id){
+  const set = buildTexSet(id);
+  TXT.brick  = set.brick;
+  TXT.tech   = set.tech;
+  TXT.floorA = set.floorA;
+  TXT.floorB = set.floorB;
+  paintArena();
+}
+
+/* ===========================================================================
+   МУЗЫКА И ЖИВОЙ ЭКВАЛАЙЗЕР
+   Песня играет в лобби, глушится в забеге. AnalyserNode снимает спектр
+   прямо с потока — полоски пляшут именно под то, что сейчас звучит.
+   TRACKS — массив: новая песня добавляется одной строкой.
+   ========================================================================== */
+/* ===========================================================================
+   МУЗЫКА
+
+   Файл грузим целиком через fetch и декодируем в AudioBuffer. Старый подход
+   с <audio> + createMediaElementSource отдавал тишину: без CORS-заголовков
+   браузер помечает поток как «испорченный». Здесь либо всё работает, либо
+   честно падаем в запасной путь — обычный <audio> без анализатора.
+   ========================================================================== */
+/* ── ВСТРОЕННЫЕ ТРЕКИ ──
+   Порядок важен: первый в списке — тот, что играет по умолчанию.
+
+   ПРО ПРОБЕЛЫ В ИМЕНИ. Раньше путь подставлялся в fetch как есть, и
+   браузер читал пробелы и слэши как разделители — запрос уходил в 404.
+   Теперь имя файла кодируется отдельно от пути: encodeURIComponent
+   превращает пробел в %20, а случайный слэш в имени — в %2F. */
+const TRACKS = [
+  { url:'https://r2.syntx.ai/user_3589464033138297336/llms/6e9ea6343db8e8193e79552c76cae847_Pooka - MAYBE SOMUGENMIRAI.mp3',
+    title:'Pooka - MAYBE SO/MUGENMIRAI' },
+
+  { url:'https://r2.syntx.ai/user_3589464033138297336/llms/ddf00d0e3f2948b83dfe9ce7109a14ea_Pooka - nee.mp3',
+    title:'Pooka - nee' }
+];
+
+/* Кодируем ТОЛЬКО имя файла, путь оставляем как есть. */
+function trackUrl(u){
+  const i = u.lastIndexOf('/');
+  if (i < 0) return encodeURIComponent(u);
+  return u.slice(0, i + 1) + encodeURIComponent(u.slice(i + 1));
+}
+
+const Music = (() => {
+  let ac = null;
+  let analyser = null, gain = null, buf = null, srcNode = null;
+  let fallbackEl = null;
+  let want = false, vol = 0.55;
+  let mode = 'idle';
+
+  /* ── РЕВЕРБ ── */
+  const VERB_SEND = 0.30;
+  const VERB_RET  = 1.00;
+  let wantVerb = false;
+  let verbSend = null, verbRet = null;
+
+  /* ── СВОЯ МУЗЫКА ──
+     userBuf  — раскодированный mp3 игрока (живёт только в памяти:
+                браузер не даёт сохранить файл между сессиями);
+     userName — имя файла без расширения, оно и показывается в лобби;
+     userUrl  — object-URL того же файла для запасного пути через <audio>;
+     srcMode  — что играть: только игровую, только свою или обе по кругу. */
+  let userBuf = null, userName = '', userUrl = null;
+  let srcMode = 'game';           /* 'game' | 'user' | 'both' */
+  let plIdx = 0;                  /* какой трек плейлиста играет сейчас */
+  let playMode = 'all';           /* 'one' | 'all' | 'shuffle' */
+  let paused = false;             /* пауза по кнопке, а не остановка */
+  let gameBuf = null;             /* кэш игрового трека */
+  let curBuf = null;              /* буфер, который звучит прямо сейчас */
+  let onTitle = null;             /* сюда UI вешает обновление подписи */
+
+  /* Плейлист строится из режима. Если выбран «только своя», но файла нет —
+     честно откатываемся к игровой, иначе была бы тишина. */
+  function playlist(){
+    const out = [];
+
+    /* игровые треки идут в том порядке, в каком объявлены в TRACKS */
+    if (srcMode === 'game' || srcMode === 'both'){
+      for (let i = 0; i < TRACKS.length; i++){
+        out.push({ kind:'game', idx:i, title: TRACKS[i].title });
+      }
+    }
+    if ((srcMode === 'user' || srcMode === 'both') && userBuf){
+      out.push({ kind:'user', idx:-1, title: userName || 'своя музыка' });
+    }
+    if (!out.length){
+      out.push({ kind:'game', idx:0, title: TRACKS[0].title });
+    }
+    return out;
+  }
+
+  function current(){
+    const pl = playlist();
+    if (plIdx >= pl.length) plIdx = 0;
+    return pl[plIdx];
+  }
+
+  /* Длительность текущего трека в секундах (0, пока не загружен). */
+  function duration(){
+    return curBuf ? (curBuf.duration || 0) : 0;
+  }
+
+  /* Переход к следующему треку.
+     manual=true — нажали «вперёд»; тогда режим «одна и та же» не мешает. */
+  function advance(manual){
+    const pl = playlist();
+
+    if (pl.length < 2){
+      /* один трек в плейлисте: просто начинаем заново */
+      offset = 0;
+      playBuffer().catch(()=>playElement());
+      return;
+    }
+
+    if (playMode === 'one' && !manual){
+      offset = 0;                       /* повтор той же песни */
+    } else if (playMode === 'shuffle'){
+      /* случайный, но не тот же самый */
+      let n = plIdx;
+      for (let k = 0; k < 8 && n === plIdx; k++){
+        n = Math.floor(Math.random() * pl.length);
+      }
+      plIdx = n;
+      offset = 0;
+    } else {
+      plIdx = (plIdx + 1) % pl.length;  /* по порядку */
+      offset = 0;
+    }
+
+    if (fallbackEl){ fallbackEl._src = null; }
+    notifyTitle();
+    playBuffer().catch(()=>playElement());
+  }
+
+  function notifyTitle(){
+    if (!onTitle) return;
+    try { onTitle(current().title); } catch(e){}
+  }
+
+  /* останавливаем источник, СНИМАЯ обработчик конца:
+     иначе stop() вызовет onended и запустит следующий трек */
+  function stopSrc(){
+    if (!srcNode) return;
+    try { srcNode.onended = null; } catch(e){}
+    try { srcNode.stop(); } catch(e){}
+    srcNode = null;
+  }
+
+  /* ── РЕВЕРБ ──
+     В забеге музыка звучит «в помещении»: к сухому сигналу подмешивается
+     хвост отражений. В лобби и на паузе — обычный чистый звук.
+     Уровни подобраны так, чтобы общая громкость не росла. */
+  /* Реверб подмешивается ПОВЕРХ прямого сигнала, а не вместо него.
+     Посыл 0.35 даёт сумму sqrt(1 + 0.35²) = 1.06 — на 0.5 дБ громче,
+     зато прямой путь никогда не отключается. */
+  /* Сеть задержек усиливает в 1.56x (измерено на шуме).
+     Возврат 1/1.56 = 0.64 приводит мокрый сигнал к уровню посыла. */
+  let reverbReady = false;   /* удалось ли собрать реверб */
+
+  /* позиция воспроизведения, чтобы музыка НЕ начиналась заново
+     при выходе в лобби или на экран смерти */
+  let startedAt = 0;        /* время контекста, когда запустили источник */
+  let offset = 0;           /* с какой секунды трека стартовали */
+  let live = false;         /* источник РЕАЛЬНО звучит прямо сейчас */
+
+  /* плавно подводим посыл к нужному уровню — без щелчков и скачков */
+  /* Управляет только посылом. Сухой путь не трогаем вообще —
+     он идёт напрямую и работает при любых обстоятельствах. */
+  function applyVerb(instant){
+    if (!verbSend || !ac) return;
+    const t  = ac.currentTime;
+    const to = wantVerb ? VERB_SEND : 0;
+
+    try {
+      verbSend.gain.cancelScheduledValues(t);
+      if (instant){
+        verbSend.gain.value = to;
+      } else {
+        /* плавно, без щелчка при входе в паузу */
+        verbSend.gain.setTargetAtTime(to, t, 0.12);
+      }
+    } catch(e){
+      try { verbSend.gain.value = to; } catch(_){}
+    }
+  }
+
+  function pos(){
+    if (mode !== 'buffer' || !ac || !curBuf) return offset;
+    const d = curBuf.duration || 1;
+    let p = offset + (ac.currentTime - startedAt);
+    return ((p % d) + d) % d;
+  }
+
+  function ctxOf(){
+    if (ac) return ac;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { ac = new AC(); } catch(e){ ac = null; }
+    return ac;
+  }
+
+  /* Музыка всегда звучит на той громкости, что выставил игрок.
+     Раньше в забеге она автоматически приглушалась до 22% — этого
+     больше нет, тише становится только от самого ползунка. */
+  function eff(){ return vol; }
+
+  /* ── РЕАЛЬНОЕ СОСТОЯНИЕ КОНТЕКСТА ──
+     resume() асинхронный: сразу после вызова state ещё 'suspended',
+     хотя звук вот-вот пойдёт. Поэтому не проверяем state синхронно,
+     а следим за событием statechange — оно приходит в момент пробуждения. */
+  let ctxReady = false;              /* контекст реально работает */
+  let onUnlock = null;               /* сюда UI вешает реакцию на пробуждение */
+
+  function watchState(a){
+    if (!a || a._watched) return;
+    a._watched = true;
+
+    const sync = () => {
+      ctxReady = (a.state === 'running');
+      if (ctxReady && want) live = true;
+      if (a.state === 'suspended') live = false;
+      if (onUnlock){ try { onUnlock(ctxReady); } catch(e){} }
+    };
+
+    try { a.addEventListener('statechange', sync); } catch(e){}
+    sync();
+  }
+
+  /* Загрузка текущего трека плейлиста.
+     Свой mp3 уже раскодирован при выборе файла — его берём готовым.
+     Игровой качаем один раз и держим в кэше. */
+  /* ══════════════ ИМПУЛЬС ПОМЕЩЕНИЯ ══════════════
+
+     В забеге музыка звучит «в комнате». Гладкий диффузный хвост,
+     отфильтрованный дважды: мягкие поверхности гасят верхи быстрее
+     низов, поэтому хвост тёмный, без шипения и писка. */
+  function makeRoomIR(a, seconds){
+    const rate = a.sampleRate;
+    const len  = Math.max(1, Math.floor(rate * seconds));
+    const ir   = a.createBuffer(2, len, rate);
+
+    const pre = Math.floor(rate * 0.015);
+
+    for (let ch = 0; ch < 2; ch++){
+      const d = ir.getChannelData(ch);
+
+      /* mulberry32: целочисленная арифметика, без переполнения */
+      let st = (ch ? 7717 : 3313) >>> 0;
+      const rnd = () => {
+        st = (st + 0x6D2B79F5) >>> 0;
+        let t = st;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+
+      /* два каскада ФНЧ = −12 дБ на октаву, срез 1100 Гц */
+      const cut = 1100;
+      const k1 = Math.exp(-2 * Math.PI * cut / rate);
+      let lp1 = 0;
+
+      for (let i = pre; i < len; i++){
+        const t = (i - pre) / (len - pre);
+        const env = Math.pow(1 - t, 2.2);
+        const white = rnd() * 2 - 1;
+        lp1 = (1 - k1) * white + k1 * lp1;
+        d[i] = lp1 * env;
+      }
+
+      let y = 0;
+      for (let i = pre; i < len; i++){
+        y = (1 - k1) * d[i] + k1 * y;
+        d[i] = y * 2.4;
+      }
+
+      /* плавные края: ступенька на границе сама по себе щелчок */
+      const fi = Math.min(len - pre, Math.floor(rate * 0.012));
+      for (let i = 0; i < fi; i++) d[pre + i] *= i / fi;
+
+      const fo = Math.min(len, Math.floor(rate * 0.06));
+      for (let i = 0; i < fo; i++) d[len - 1 - i] *= i / fo;
+    }
+
+    /* нормировка по энергии: сумма квадратов = 1 */
+    let energy = 0;
+    for (let ch = 0; ch < 2; ch++){
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) energy += d[i] * d[i];
+    }
+    if (energy > 0){
+      const g = 1 / Math.sqrt(energy);
+      for (let ch = 0; ch < 2; ch++){
+        const d = ir.getChannelData(ch);
+        for (let i = 0; i < len; i++) d[i] *= g;
+      }
+    }
+    return ir;
+  }
+
+  /* ── СБОРКА ГРАФА ──
+     источник → громкость → анализатор → выход
+                        ↘ посыл → свёртка → ФНЧ → возврат ↗ */
+  function ensureGraph(){
+    const a = ctxOf();
+    if (!a) return null;
+    watchState(a);
+    if (analyser) return a;
+
+    gain = a.createGain();
+    gain.gain.value = eff();
+
+    analyser = a.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.62;
+    analyser.minDecibels = -95;
+    analyser.maxDecibels = -10;
+    buf = new Uint8Array(analyser.frequencyBinCount);
+
+    /* ГЛАВНОЕ: цепочка источник → громкость → анализатор → выход.
+       Без connect(gain → analyser) звук обрывается после громкости
+       и в динамики не попадает. Эквалайзер при этом работает,
+       потому что анализатор подключён к выходу отдельно. */
+    gain.connect(analyser);
+    analyser.connect(a.destination);
+
+    /* ── РЕВЕРБ ── */
+    verbSend = a.createGain();
+    verbSend.gain.value = wantVerb ? VERB_SEND : 0;
+
+    const conv = a.createConvolver();
+    try { conv.normalize = false; } catch(_){}
+
+    try {
+      conv.buffer = makeRoomIR(a, 1.2);
+      reverbReady = true;
+    } catch(e){
+      reverbReady = false;
+    }
+
+    /* ФНЧ на мокром пути — страховка от верхов */
+    const wetLp = a.createBiquadFilter();
+    wetLp.type = 'lowpass';
+    wetLp.frequency.value = 2600;
+    wetLp.Q.value = 0.5;
+
+    verbRet = a.createGain();
+    verbRet.gain.value = VERB_RET;
+
+    analyser.connect(verbSend);
+    verbSend.connect(conv);
+    conv.connect(wetLp);
+    wetLp.connect(verbRet);
+    verbRet.connect(a.destination);
+
+    return a;
+  }
+
+  /* Переключить зацикливание на живом источнике.
+     Если источник не запущен — ничего не делаем: при следующем
+     playBuffer() флаг выставится по текущему режиму. */
+  function applyLoopMode(){
+    if (!srcNode) return;
+    const pl = playlist();
+    const single = (playMode === 'one') || (pl.length === 1);
+
+    try { srcNode.loop = single; } catch(e){}
+
+    /* при переходе с зацикливания на очередь возвращаем обработчик
+       конца, иначе трек просто оборвётся на последней секунде */
+    if (!single && !srcNode.onended){
+      srcNode.onended = () => {
+        if (!want || !srcNode) return;
+        srcNode = null;
+        advance(false);
+      };
+    }
+    if (single && srcNode.onended){
+      try { srcNode.onended = null; } catch(e){}
+    }
+  }
+
+  /* ── ЗАПУСК ТРЕКА ──
+     Защита от параллельных запусков. Два playBuffer одновременно
+     (клик по кнопке ловится и в capture, и в обработчике) давали
+     двух сирот: один источник остановлен, но его onended жив. */
+  /* ── МАШИНА СОСТОЯНИЙ ЗАПУСКА ──
+     Вместо булева флага — счётчик поколений. Каждый запуск получает
+     свой номер; результат устаревшего запуска отбрасывается. Так
+     нельзя «застрять» в загрузке: новая попытка всегда получает
+     свежий номер и не блокируется прошлой. */
+  let launchToken = 0;
+  let loading = false;
+  let loadingSince = 0;
+
+  async function playBuffer(){
+    /* прошлая загрузка висит дольше восьми секунд — считаем её
+       мёртвой: сеть отвалилась или декодер подавился файлом */
+    if (loading && (Date.now() - loadingSince) > 8000){
+      loading = false;
+    }
+    if (loading) return;
+
+    const my = ++launchToken;
+    loading = true;
+    loadingSince = Date.now();
+    try {
+      await playBufferInner(my);
+    } finally {
+      /* снимаем флаг только если мы всё ещё последний запуск */
+      if (my === launchToken) loading = false;
+    }
+  }
+
+  async function playBufferInner(my){
+    const a = ctxOf();
+    if (!a) throw new Error('no ctx');
+
+    /* resume() не ждём: вне жеста промис не резолвится никогда */
+    if (a.state === 'suspended'){
+      try { const r = a.resume(); if (r && r.catch) r.catch(()=>{}); } catch(e){}
+    }
+
+    mode = 'loading';
+    const cur = current();
+
+    let b;
+    try {
+      b = await loadBuffer();
+    } catch(err){
+      /* Загрузка сорвалась. mode оставлять в 'loading' нельзя:
+         start() при нём молчит, и музыка больше не запустится. */
+      if (my === launchToken){
+        mode = 'idle';
+        paused = false;
+      }
+      throw err;
+    }
+    if (!want) return;
+
+    /* Пока качали файл, могли переключить трек или нажать паузу.
+       Сверяемся: если нас обогнали — молча уходим, не трогая
+       источник. Раньше здесь стояла рекурсия в playBuffer, и она
+       натыкалась на собственный флаг загрузки. */
+    if (my !== launchToken) return;
+
+    const now = current();
+    if (now.kind !== cur.kind || now.idx !== cur.idx) return;
+    if (paused || !want) return;
+
+    if (a.state === 'suspended'){
+      try { const r = a.resume(); if (r && r.catch) r.catch(()=>{}); } catch(e){}
+    }
+
+    ensureGraph();
+    gain.gain.value = eff();
+
+    stopSrc();
+    srcNode = a.createBufferSource();
+    srcNode.buffer = b;
+    curBuf = b;
+
+    /* Один трек в плейлисте и режим «одна и та же» — зацикливаем
+       силами самого источника. Иначе конец трека ловит onended. */
+    const pl = playlist();
+    const singleLoop = (playMode === 'one') || (pl.length === 1);
+    srcNode.loop = singleLoop;
+
+    if (!singleLoop){
+      srcNode.onended = () => {
+        if (!want || !srcNode) return;
+        srcNode = null;
+        advance(false);
+      };
+    }
+
+    srcNode.connect(gain);
+
+    const d = b.duration || 0;
+    const from = d > 0 ? (offset % d) : 0;
+    startedAt = a.currentTime;
+    offset = from;
+    srcNode.start(0, from);
+
+    live = true;
+    if (a.state === 'running') ctxReady = true;
+    mode = 'buffer';
+    paused = false;
+    notifyTitle();
+  }
+
+  /* Кэш раскодированных игровых треков: индекс → AudioBuffer.
+     Раньше был один слот, и при переключении трек качался заново. */
+  const gameBufs = {};
+
+  async function loadBuffer(){
+    const cur = current();
+
+    if (cur.kind === 'user'){
+      if (!userBuf) throw new Error('нет своего файла');
+      return userBuf;
+    }
+
+    if (gameBufs[cur.idx]) return gameBufs[cur.idx];
+
+    const a = ctxOf();
+    if (!a) throw new Error('no ctx');
+
+    const res = await fetch(trackUrl(TRACKS[cur.idx].url), { mode:'cors' });
+    if (!res.ok) throw new Error('http ' + res.status);
+    const ab = await res.arrayBuffer();
+
+    const buf = await new Promise((ok, no) => {
+      let done = false;
+      const good = b => { if (!done){ done = true; ok(b); } };
+      const bad  = e => { if (!done){ done = true; no(e); } };
+      try {
+        const r = a.decodeAudioData(ab, good, bad);
+        if (r && typeof r.then === 'function') r.then(good).catch(bad);
+      } catch(e){ bad(e); }
+    });
+
+    gameBufs[cur.idx] = buf;
+    return buf;
+  }
+
+  function playElement(){
+    const cur = current();
+    const url = cur.kind === 'user' ? userUrl : trackUrl(TRACKS[cur.idx].url);
+
+    if (!fallbackEl){
+      fallbackEl = new Audio();
+      fallbackEl.preload = 'auto';
+      fallbackEl.addEventListener('error', ()=>{ mode = 'error'; });
+    }
+
+    /* зацикливаем только когда трек один: иначе конец трека
+       должен переключать на следующий, а не повторять этот */
+    const pl = playlist();
+    fallbackEl.loop = (playMode === 'one') || (pl.length === 1);
+
+    if (!fallbackEl.loop && !fallbackEl._hooked){
+      fallbackEl._hooked = true;
+      fallbackEl.addEventListener('ended', () => {
+        if (!want || fallbackEl.loop) return;
+        advance(false);
+      });
+    }
+    /* источник мог смениться — переставляем, только если правда другой */
+    if (fallbackEl._src !== url){
+      fallbackEl.src = url;
+      fallbackEl._src = url;
+    }
+    fallbackEl.volume = clamp(eff(), 0, 1);
+    const r = fallbackEl.play();
+    if (r && r.catch) r.catch(()=>{ mode = 'error'; });
+    mode = 'element';
+  }
+
+  return {
+    start(){
+      want = true;
+      const a = ctxOf();
+      if (!a){ playElement(); return; }
+
+      /* Будим контекст на каждом вызове — это дёшево и безопасно.
+         Раньше здесь висел await resume(): вне жеста промис не резолвился,
+         и запуск не происходил до первого касания ползунка. */
+      if (a.state === 'suspended'){
+        try { const r = a.resume(); if (r && r.catch) r.catch(()=>{}); } catch(e){}
+      }
+
+      if (live && srcNode) return;        /* уже звучит */
+      if (mode === 'element' && fallbackEl && !fallbackEl.paused) return;
+
+      /* 'loading' — это ожидание сети. Уважаем его, только пока
+         загрузка реально идёт. Если флаг снят, а mode остался
+         'loading', значит предыдущая попытка оборвалась и надо
+         пробовать заново — иначе музыка не заиграет никогда. */
+      if (mode === 'loading' && loading) return;
+
+      /* Пауза — это осознанное состояние игрока, а start() зовётся
+         из любого жеста (в том числе из фазы перехвата клика).
+         Если её сбрасывать здесь, обработчик кнопки «пауза» увидит
+         уже перевёрнутое значение и сделает обратное действие.
+         Возобновление — только через resumePlayback(). */
+      if (paused) return;
+
+      playBuffer().catch(()=>playElement());
+    },
+
+    /* разбудить контекст — вызывается из обработчиков жестов */
+    resumeCtx(){
+      const a = ctxOf();
+      if (a && a.state === 'suspended'){
+        try { const r = a.resume(); if (r && r.catch) r.catch(()=>{}); } catch(e){}
+      }
+    },
+
+    /* позиция в секундах — пригодится и для отладки */
+    get position(){ return pos(); },
+    stop(){
+      offset = pos();          /* запоминаем, где остановились */
+      want = false;
+      live = false;
+      stopSrc();               /* снять onended, иначе поедет следующий трек */
+      if (fallbackEl) fallbackEl.pause();
+      mode = 'idle';
+    },
+
+    /* мягкая пауза без потери места */
+    pause(){
+      offset = pos();
+      live = false;
+      stopSrc();
+      if (fallbackEl) fallbackEl.pause();
+      mode = 'idle';
+      /* want остаётся true — при возврате продолжим */
+    },
+
+    setVolume(v){
+      vol = clamp(v, 0, 1);
+      if (gain) gain.gain.value = eff();
+      if (fallbackEl) fallbackEl.volume = clamp(eff(), 0, 1);
+    },
+
+    /* ── СВОЯ МУЗЫКА ──
+       Принимает File из <input type=file>. Файл остаётся в памяти
+       до перезагрузки страницы: браузер не даёт сохранить его насовсем. */
+    async loadUserFile(file){
+      const a = ctxOf();
+      if (!a) throw new Error('нет аудиоконтекста');
+
+      const ab = await file.arrayBuffer();
+      const buf = await new Promise((ok, no) => {
+        let done = false;
+        const good = b => { if (!done){ done = true; ok(b); } };
+        const bad  = e => { if (!done){ done = true; no(e); } };
+        try {
+          const r = a.decodeAudioData(ab.slice(0), good, bad);
+          if (r && typeof r.then === 'function') r.then(good).catch(bad);
+        } catch(e){ bad(e); }
+      });
+
+      /* старый object-URL освобождаем, иначе память течёт */
+      if (userUrl){ try { URL.revokeObjectURL(userUrl); } catch(e){} }
+      userUrl  = URL.createObjectURL(file);
+
+      userBuf  = buf;
+      userName = String(file.name || 'своя музыка').replace(/\.mp3$/i, '');
+
+      /* по умолчанию после загрузки — только своя */
+      srcMode = 'user';
+      plIdx = 0;
+      offset = 0;
+
+      /* запасной путь тоже должен знать про новый файл */
+      if (fallbackEl){ fallbackEl._src = null; }
+
+      this.restart();
+      notifyTitle();
+      return { title: userName, seconds: buf.duration };
+    },
+
+    hasUser(){ return !!userBuf; },
+    userTitle(){ return userName; },
+
+    /* режим источника: 'game' | 'user' | 'both' */
+    setSource(m){
+      if (m !== 'game' && m !== 'user' && m !== 'both') return srcMode;
+      srcMode = m;
+      plIdx = 0;
+      offset = 0;
+      if (fallbackEl){ fallbackEl._src = null; }
+      this.restart();
+      notifyTitle();
+      return srcMode;
+    },
+    get source(){ return srcMode; },
+
+    /* перезапуск с текущим плейлистом (после смены режима или файла) */
+    restart(){
+      if (!want) { notifyTitle(); return; }
+      const a = ctxOf();
+      if (!a){ playElement(); notifyTitle(); return; }
+      stopSrc();
+      live = false;
+      mode = 'idle';
+      playBuffer().catch(()=>playElement());
+    },
+
+    /* ── ПЛЕЕР ── */
+
+    /* длительность текущего трека в секундах */
+    get duration(){ return duration(); },
+
+    /* сколько прошло от начала */
+    get elapsed(){
+      if (paused) return offset;
+      return pos();
+    },
+
+    /* сколько осталось */
+    get remaining(){
+      const d = duration();
+      return d > 0 ? Math.max(0, d - this.elapsed) : 0;
+    },
+
+    /* идёт ли воспроизведение прямо сейчас */
+    get paused(){ return paused; },
+
+    /* пауза: источник останавливаем, позицию запоминаем */
+    pausePlayback(){
+      const d = duration();
+      offset = d > 0 ? pos() : offset;   /* где остановились */
+      paused = true;
+      want = true;                        /* музыка включена, просто на паузе */
+      live = false;
+      stopSrc();
+      if (fallbackEl) fallbackEl.pause();
+      mode = 'idle';
+      loading = false;                    /* пауза отменяет текущую загрузку */
+      launchToken++;                      /* и делает её результат недействительным */
+    },
+
+    /* продолжить с того же места */
+    resumePlayback(){
+      const wasPaused = paused;
+      paused = false;
+      want = true;
+
+      const a = ctxOf();
+      if (a && a.state === 'suspended'){
+        try { const r = a.resume(); if (r && r.catch) r.catch(()=>{}); } catch(e){}
+      }
+
+      /* Если источник уже звучит и это не снятие с паузы — ничего
+         не делаем. Иначе перезапускаем с сохранённой позиции.
+         Раньше здесь стоял ранний выход при paused===false, из-за
+         чего кнопка «играть» не работала, если флаг успел сброситься. */
+      if (!wasPaused && live && srcNode) return;
+
+      playBuffer().catch(()=>playElement());
+    },
+
+    /* перемотка в секундах */
+    seek(sec){
+      const d = duration();
+      if (d <= 0) return;
+      offset = Math.max(0, Math.min(d - 0.15, sec));
+      if (paused){
+        /* на паузе просто запоминаем место — звук не трогаем */
+        return;
+      }
+      playBuffer().catch(()=>playElement());
+    },
+
+    /* Следующий режим по кругу: по порядку → случайно → одна и та же.
+       Одна кнопка вместо трёх — меньше визуального шума. */
+    cyclePlayMode(){
+      const order = ['all', 'shuffle', 'one'];
+      const i = order.indexOf(playMode);
+      playMode = order[(i + 1) % order.length];
+
+      /* Режим влияет только на то, что делать ПОСЛЕ трека.
+         Сам трек перезапускать незачем: у живого источника
+         достаточно переключить loop. Раньше здесь стоял
+         playBuffer(), и каждое нажатие заново тянуло файл из сети —
+         всё это время mode висел в 'loading', а start() молчал. */
+      applyLoopMode();
+      return playMode;
+    },
+
+    /* режим плейлиста: 'one' | 'all' | 'shuffle' */
+    setPlayMode(m){
+      if (m !== 'one' && m !== 'all' && m !== 'shuffle') return playMode;
+      playMode = m;
+      applyLoopMode();
+      return playMode;
+    },
+    get playMode(){ return playMode; },
+
+    /* индекс текущего трека в плейлисте и общее число */
+    get trackIndex(){ return plIdx; },
+    get trackCount(){ return playlist().length; },
+
+    /* список треков для интерфейса */
+    tracks(){ return playlist().map(t => ({ title:t.title, kind:t.kind })); },
+
+    /* выбрать трек по индексу */
+    selectTrack(i){
+      const pl = playlist();
+      if (i < 0 || i >= pl.length || i === plIdx) return current().title;
+      plIdx = i;
+      offset = 0;
+      paused = false;
+      if (fallbackEl){ fallbackEl._src = null; }
+      notifyTitle();
+      playBuffer().catch(()=>playElement());
+      return current().title;
+    },
+
+    /* следующий / предыдущий вручную */
+    nextTrack(){
+      advance(true);
+      return current().title;
+    },
+    prevTrack(){
+      const pl = playlist();
+      if (pl.length < 2) return current().title;
+      /* если играем больше трёх секунд — сначала в начало трека */
+      if (this.elapsed > 3){
+        offset = 0;
+        playBuffer().catch(()=>playElement());
+        return current().title;
+      }
+      plIdx = (plIdx - 1 + pl.length) % pl.length;
+      offset = 0;
+      if (fallbackEl){ fallbackEl._src = null; }
+      notifyTitle();
+      playBuffer().catch(()=>playElement());
+      return current().title;
+    },
+
+    onTitleChange(fn){ onTitle = fn; notifyTitle(); },
+
+    /* готов ли звук играть прямо сейчас.
+       false — браузер ещё ждёт жеста пользователя. */
+    get ready(){ return ctxReady; },
+
+    /* подписка на пробуждение контекста: UI показывает подсказку,
+       пока звук заблокирован, и убирает её после первого жеста */
+    onUnlock(fn){ onUnlock = fn; fn(ctxReady); },
+
+    /* разбудить контекст и, если надо, запустить воспроизведение.
+       Вызывается из ЛЮБОГО жеста — клик по пустому месту тоже считается. */
+    unlockNow(){
+      const a = ctxOf();
+      if (!a) return;
+      watchState(a);
+
+      /* resume() может отклониться, если жеста не было — это нормально */
+      try { const r = a.resume(); if (r && r.catch) r.catch(()=>{}); } catch(e){}
+
+      /* музыка была «запущена», но контекст спал — перезапускаем источник,
+         чтобы он гарантированно пошёл с текущей позиции */
+      if (want && !a._restarted){
+        a._restarted = true;
+        if (!srcNode || !live) this.restart();
+      }
+    },
+    title(){ return current().title; },
+
+    /* инфо о плейлисте — пригодится и для отладки */
+    playlistSize(){ return playlist().length; },
+    isLoop(){ return playlist().length === 1; },
+
+    /* включить/выключить эхо помещения */
+    setReverb(on){
+      wantVerb = !!on;
+      applyVerb(false);
+    },
+    get reverb(){ return wantVerb; },
+    getVolume(){ return vol; },
+    /* 0..1 — реальная громкость на выходе прямо сейчас */
+    /* Уровень для эквалайзера. Считаем музыку звучащей, если есть
+       живой источник или идёт воспроизведение. Флаг live трогать
+       нельзя: он гаснет по событию statechange асинхронно и раньше
+       гасил полоски при полностью играющей музыке. */
+    get level(){ return (want && !paused) ? eff() : 0; },
+    get playing(){ return live; },
+    get mode(){ return mode; },
+    get failed(){ return mode === 'error'; },
+
+    spectrum(bands){
+      const out = new Array(bands).fill(0);
+      /* громкость ноль — отдаём тишину, не тревожа анализатор */
+      if (eff() <= 0.0001) return out;
+
+      /* Проверяем только наличие анализатора. Флаг live ненадёжен:
+         он сбрасывается по событию statechange, и полоски замирали,
+         хотя музыка играла. Данные всё равно читаются с живого узла. */
+      if (!analyser || !buf) return out;
+      try { analyser.getByteFrequencyData(buf); } catch(e){ return out; }
+
+      const n = buf.length;
+      const lo = 2, hi = Math.floor(n * 0.72);
+      for (let b = 0; b < bands; b++){
+        const t0 = b / bands, t1 = (b + 1) / bands;
+        const i0 = Math.floor(lo * Math.pow(hi/lo, t0));
+        const i1 = Math.max(i0 + 1, Math.floor(lo * Math.pow(hi/lo, t1)));
+        let sum = 0, cnt = 0;
+        for (let k = i0; k <= i1 && k < n; k++){ sum += buf[k]; cnt++; }
+        out[b] = cnt ? (sum / cnt) / 255 : 0;
+      }
+      return out;
+    }
+  };
+})();
+
+/* ===========================================================================
+   МИНИ-ЭКВАЛАЙЗЕР В ЛОББИ.
+   Маленький канвас рядом с названием трека. Растёт прямо из спектра
+   реального звука, поэтому пляшет именно под текущую музыку.
+   ========================================================================== */
+/* ===========================================================================
+   ЭКВАЛАЙЗЕР.
+   Сорок восемь полос — детальнее, чем было. Низы усилены: они дают
+   самый заметный «толчок». Считается по сигналу ПОСЛЕ регулятора
+   громкости, поэтому на нуле полоски замирают совсем.
+   ========================================================================== */
+/* МАЛО ПОЛОС — ТОЛСТЫЕ СТОЛБИКИ.
+   На 48 полосах при ширине 120px каждая занимала ~2px: получалась
+   рябь, в которой ничего не разглядеть. 16 полос дают по 7px —
+   каждый столбик читается отдельно. */
+const EQ_BANDS = 16;
+let eqSmooth = new Array(EQ_BANDS).fill(0);
+
+/* вес полосы: 0 — самый низ, 1 — самый верх.
+   На низах до 3.1x, к верхам сходит к 1.0 */
+function bandWeight(i){
+  const t = i / (EQ_BANDS - 1);
+  /* Бас выше верхов — так устроена настоящая музыка: низких частот
+     объективно больше. Но раньше множитель был 2.4x поверх уже громкого
+     баса, и картинка превращалась в ровную наклонную лестницу —
+     двигались 3 полосы из 16. 1.35x даёт заметный бас без перекоса. */
+  return 1 + 0.35 * Math.pow(1 - t, 2);
+}
+
+/* рисует готовый сглаженный спектр в канвас по id */
+function drawEqInto(id, spec, t){
+  const cvs = document.getElementById(id);
+  if (!cvs) return;
+  const cx = cvs.getContext('2d');
+  if (!cx) return;
+
+  const w = cvs.width, h = cvs.height;
+
+  cx.setTransform(1,0,0,1,0,0);
+  cx.clearRect(0, 0, w, h);
+
+  const bw  = w / EQ_BANDS;
+  /* зазор от ширины полосы: при 320px полоса 20px, зазор 3px, столбик 17px */
+  const gap = Math.max(2, Math.round(bw * 0.15));
+  const bwid = Math.max(3, bw - gap);
+
+  /* ── состояние покоя ──
+     Вместо пустоты — ряд тусклых чёрточек у самого низа. */
+  let energy = 0;
+  for (let i = 0; i < EQ_BANDS; i++) energy += spec[i];
+
+  if (energy < 0.03){
+    for (let i = 0; i < EQ_BANDS; i++){
+      const hue = (i * 22 + t * 20) % 360;
+      cx.fillStyle = `hsla(${hue},70%,45%,.45)`;
+      cx.fillRect(i * bw + gap/2, h - h*0.14, bwid, Math.max(4, h*0.09));
+    }
+    cx.fillStyle = 'rgba(255,255,255,.10)';
+    cx.fillRect(0, h-1, w, 1);
+    return;
+  }
+
+  for (let i = 0; i < EQ_BANDS; i++){
+    const v = spec[i];
+
+    /* тихая полоса тоже даёт видимую черту */
+    const hgt = Math.max(h*0.09, v * (h - 5));
+    const hue = (i * 22 + t * 55) % 360;
+    const x = i * bw + gap/2;
+    const y = h - 1 - hgt;
+
+    cx.fillStyle = v <= 0.008
+      ? `hsla(${hue},75%,45%,.42)`      /* тихая — приглушённая */
+      : `hsla(${hue},100%,60%,1)`;
+    cx.fillRect(x, y, bwid, hgt);
+
+    /* яркая макушка */
+    if (v > 0.02 && hgt > 5){
+      cx.fillStyle = `hsla(${hue},100%,92%,1)`;
+      cx.fillRect(x, y, bwid, Math.max(h*0.05, hgt*0.22));
+    }
+  }
+
+  cx.fillStyle = 'rgba(255,255,255,.10)';
+  cx.fillRect(0, h-1, w, 1);
+}
+
+function drawSpectrum(){
+  const t = performance.now()/1000;
+
+  /* громкость в ноль — гасим мгновенно, без плавного хвоста */
+  if (Music.level <= 0.0001){
+    for (let i = 0; i < EQ_BANDS; i++) eqSmooth[i] = 0;
+    drawEqInto('eqMini',  eqSmooth, t);
+    drawEqInto('eqMini2', eqSmooth, t);
+    return;
+  }
+
+  const raw = Music.spectrum(EQ_BANDS);
+
+  /* ─────────── РАСЧЁТ ВЫСОТЫ ───────────
+     РАНЬШЕ здесь было деление на пик: norm = 0.94 / peak, каждый кадр.
+     Из-за этого самая громкая полоса ВСЕГДА прижималась к потолку —
+     и на 100%, и на 50%, и на 25% громкости картинка была одинаковой.
+     Удар бочки не поднимал бас, а опускал всё остальное: подскок +0 пп.
+     Именно поэтому на полной громкости левая часть «заливалась».
+
+     ТЕПЕРЬ никакой подгонки под пик. Фиксированное усиление и потолок
+     0.97: на полной громкости бас стоит около 77% и у него остаётся
+     запас, чтобы подскочить на ударе бочки. */
+  const GAIN = 0.62;
+  const CEIL = 0.97;
+
+  for (let i = 0; i < EQ_BANDS; i++){
+    const shaped = Math.pow(raw[i], 0.75) * bandWeight(i) * GAIN;
+    const target = Math.min(CEIL, shaped);
+
+    /* вверх — резко, вниз — плавно */
+    eqSmooth[i] += (target - eqSmooth[i]) * (target > eqSmooth[i] ? 0.60 : 0.15);
+  }
+
+  drawEqInto('eqMini',  eqSmooth, t);
+  drawEqInto('eqMini2', eqSmooth, t);
+}
+
+/* =============================================================== ПРЕДМЕТЫ ==/* =============================================================== ПРЕДМЕТЫ ==
+   Аптечка, ящик патронов, сфера души — рисуем как пиксельные спрайты.
+   ========================================================================== */
+/* СЕРДЦЕ на земле — белое, как и в HUD */
+/* Сердечко рисуется крупнее клетки: спрайт 46x46 при клетке 32.
+   Так его видно издалека — в клетку целиком оно было мелким и терялось
+   среди стен. Хитбокс при этом остаётся прежним: сбор считается по клетке,
+   а не по картинке. */
+const MED_PAD  = 7;                     /* насколько выступает за клетку */
+const MED_SIZE = TILE + MED_PAD*2;      /* 46 */
+
+function sprMedkit(){
+  const c = mkCanvas(MED_SIZE, MED_SIZE), g = c.getContext('2d');
+  const cx = MED_SIZE/2, cy = MED_SIZE/2 - 1, r = 13.5;
+
+  /* тёмная подложка, чтобы читалось на чёрном полу */
+  heartPath(g, cx, cy, r + 2.5);
+  g.fillStyle = 'rgba(0,0,0,.6)';
+  g.fill();
+
+  heartPath(g, cx, cy, r);
+  g.fillStyle = '#ffffff';
+  g.fill();
+
+  heartPath(g, cx, cy, r);
+  g.strokeStyle = 'rgba(190,190,210,.85)';
+  g.lineWidth = 1.4;
+  g.stroke();
+
+  /* блик — крупнее вместе с сердечком */
+  g.fillStyle = 'rgba(255,255,255,.95)';
+  g.beginPath();
+  g.ellipse(cx - r*0.32, cy - r*0.42, 3.1, 2.0, -0.5, 0, 7);
+  g.fill();
+
+  return c;
+}
+function sprAmmo(){
+  /* ЭНЕРГОЯЧЕЙКА — синий цилиндр с подсветкой */
+  const c = mkCanvas(TILE,TILE), g = c.getContext('2d');
+
+  /* корпус */
+  const grd = g.createLinearGradient(9,0,23,0);
+  grd.addColorStop(0,   '#0a2450');
+  grd.addColorStop(0.35,'#1e5bc8');
+  grd.addColorStop(0.6, '#3d8ef0');
+  grd.addColorStop(1,   '#0a2450');
+  g.fillStyle = grd;
+  g.fillRect(10, 7, 12, 20);
+
+  /* тёмные торцы */
+  g.fillStyle = '#061428';
+  g.fillRect(10, 7, 12, 3);
+  g.fillRect(10, 24, 12, 3);
+
+  /* светящееся ядро */
+  g.shadowColor = '#5fa8ff'; g.shadowBlur = 8;
+  g.fillStyle = '#8ecaff';
+  g.fillRect(13, 12, 6, 10);
+  g.shadowBlur = 0;
+
+  /* блик */
+  g.fillStyle = 'rgba(200,230,255,.7)';
+  g.fillRect(12, 10, 2, 15);
+
+  /* контакты */
+  g.fillStyle = '#4a9eff';
+  g.fillRect(12, 27, 3, 2);
+  g.fillRect(17, 27, 3, 2);
+
+  return c;
+}
+/* СФЕРА ДУШИ — всегда синяя, на любой карте.
+   Раньше в градиенте был белый центр, а рисовалась сфера в режиме 'lighter':
+   на светлом фоне «Страны чудес» это складывалось в белое пятно.
+   Теперь заливка — плотный синий без белого, с тёмной обводкой,
+   чтобы читалась и на радуге, и на тёмном кирпиче. */
+function sprSoul(){
+  const c = mkCanvas(TILE,TILE), g = c.getContext('2d');
+  const CX = 16, CY = 15, R = 11;
+
+  /* тёмный контур — держит форму на светлом фоне */
+  g.fillStyle = '#08183f';
+  g.beginPath(); g.arc(CX, CY, R+1.4, 0, 7); g.fill();
+
+  /* тело: от светлого синего к глубокому */
+  const grd = g.createRadialGradient(CX-3, CY-4, 1, CX, CY, R);
+  grd.addColorStop(0,   '#7fc4ff');   /* блик — голубой, не белый */
+  grd.addColorStop(0.35,'#3d8ef0');
+  grd.addColorStop(0.72,'#1e5bc8');
+  grd.addColorStop(1,   '#0a2f7a');
+  g.fillStyle = grd;
+  g.beginPath(); g.arc(CX, CY, R, 0, 7); g.fill();
+
+  /* внутреннее кольцо */
+  g.strokeStyle = 'rgba(140,200,255,.55)';
+  g.lineWidth = 1;
+  g.beginPath(); g.arc(CX, CY, R*0.72, 0, 7); g.stroke();
+
+  /* маленький блик сверху слева */
+  g.fillStyle = 'rgba(190,225,255,.75)';
+  g.beginPath(); g.ellipse(CX-3.5, CY-4.5, 3, 2.2, -0.5, 0, 7); g.fill();
+
+  return c;
+}
+/* бочка — простое препятствие */
+function sprBarrel(){
+  /* ПРЕПЯТСТВИЕ — простой чёрный блок. Никаких взрывов и урона,
+     это стена, которую надо обходить. Радужную кайму рисует
+     drawRainbowEdges вместе с обычными стенами. */
+  const c = mkCanvas(TILE,TILE), g = c.getContext('2d');
+
+  g.fillStyle = '#040406';
+  g.fillRect(2, 2, TILE-4, TILE-4);
+
+  g.strokeStyle = 'rgba(255,255,255,.07)';
+  g.lineWidth = 1;
+  g.strokeRect(3.5, 3.5, TILE-7, TILE-7);
+
+  g.fillStyle = 'rgba(255,255,255,.045)';
+  g.fillRect(5, 5, TILE-10, 1);
+  g.fillRect(5, 5, 1, TILE-10);
+  return c;
+}
+
+const SPR = { medkit:sprMedkit(), ammo:sprAmmo(), soul:sprSoul(), barrel:sprBarrel() };
+
+/* ================================================================ ЗВУКИ ===
+   Всё синтезируется на месте через WebAudio: укус, взрыв, смерть, поворот.
+   ========================================================================== */
+const Snd = (() => {
+  let ac = null, on = true, master = 0.70;   /* общая громкость эффектов */
+  function ctx(){
+    if (!ac){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ac = new AC();
+    }
+    /* resume() отклоняется, если жеста ещё не было.
+       Без catch это даёт необработанную ошибку в консоли. */
+    if (ac.state === 'suspended'){
+      try { const r = ac.resume(); if (r && r.catch) r.catch(()=>{}); } catch(e){}
+    }
+    return ac;
+  }
+  function tone(f0, f1, dur, type, vol, dly){
+    if (!on) return; const a = ctx(); if (!a) return;
+    const t0 = a.currentTime + (dly||0);
+    const o = a.createOscillator(), gn = a.createGain();
+    o.type = type || 'square';
+    o.frequency.setValueAtTime(f0, t0);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20,f1), t0+dur);
+    gn.gain.setValueAtTime(0, t0);
+    gn.gain.linearRampToValueAtTime((vol==null?.18:vol) * master, t0+0.008);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.connect(gn); gn.connect(a.destination);
+    o.start(t0); o.stop(t0+dur+0.02);
+  }
+  function noise(dur, vol, filt, sweep){
+    if (!on) return; const a = ctx(); if (!a) return;
+    const len = Math.max(1, (a.sampleRate*dur)|0);
+    const buf = a.createBuffer(1, len, a.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<len;i++){
+      const t = i/len;
+      d[i] = (Math.random()*2-1) * Math.pow(1-t, 1.6);
+    }
+    const src = a.createBufferSource(); src.buffer = buf;
+    const bq = a.createBiquadFilter(); bq.type='lowpass';
+    bq.frequency.setValueAtTime(filt||1400, a.currentTime);
+    if (sweep) bq.frequency.exponentialRampToValueAtTime(Math.max(60,filt*0.15), a.currentTime+dur);
+    const gn = a.createGain(); gn.gain.value = (vol==null?.25:vol) * master;
+    src.connect(bq); bq.connect(gn); gn.connect(a.destination);
+    src.start();
+  }
+  return {
+    bite(){ tone(520, 180, .09, 'square', .16); tone(760, 300, .06, 'sawtooth', .09, .01); },
+    barrel(){ noise(.5, .4, 900, true); tone(150, 30, .55, 'sawtooth', .28); tone(90,24,.6,'square',.2,.03); },
+    dead(){ tone(300, 40, .8, 'sawtooth', .25); tone(180, 30, .9, 'square', .18, .06);
+            noise(.45,.3,700,true); },
+    turn(){ tone(1200, 900, .032, 'square', .05); },
+    shoot(){ tone(880, 170, .11, 'square', .20); noise(.10, .16, 2200, true);
+             tone(300, 90, .14, 'sawtooth', .12, .02); },
+    jam(){ tone(200, 120, .10, 'square', .12); },
+    pick(){ tone(660, 990, .07, 'square', .13); tone(990, 1320, .07, 'square', .1, .06); },
+    hurt(){ tone(220, 90, .22, 'sawtooth', .22); noise(.18,.2,600,true); },
+    level(){ [523,659,784,1046].forEach((f,i)=>tone(f,f*1.5,.16,'square',.13,i*.09)); },
+    hungry(n){ /* урчит: чем ближе смерть, тем ниже нотa и чаще повтор */
+      const f = 150 - n*70, v = .06 + n*.10;
+      tone(f, f*0.62, .28, 'sawtooth', v);
+      tone(f*1.5, f*0.9, .22, 'square', v*.5, .04);
+      noise(.14, v*.4, 420, true);
+    },
+    toggle(v){ on = v; if (on) ctx(); return on; },
+    setOn(v){ on = !!v; if (on) ctx(); },
+    setVolume(v){ master = clamp(v, 0, 1); },
+    getVolume(){ return master; },
+    get on(){ return on; },
+    unlock(){ ctx(); }
+  };
+})();
+
+
+/* ================================================================ СЕТКА == */
+const grid = new Uint8Array(COLS*ROWS);
+const inB  = (cx,cy) => cx>=0 && cy>=0 && cx<COLS && cy<ROWS;
+const at   = (cx,cy) => inB(cx,cy) ? grid[cy*COLS+cx] : BRICK;   // вне карты = стена
+const isWall = (cx,cy) => at(cx,cy) !== FLOOR;
+
+/* ---------------------------------------------------- пререндер арены --- */
+const arena = document.createElement('canvas');
+arena.width = ARENA_W; arena.height = ARENA_H;
+const aCtx = arena.getContext('2d');
+aCtx.imageSmoothingEnabled = false;
+
+/* радужный цвет по фазе 0..1 */
+function rainbowAt(phase, alpha){
+  const h = ((phase % 1) + 1) % 1 * 360;
+  return `hsla(${h},100%,60%,${alpha == null ? 1 : alpha})`;
+}
+
+function paintArena(){
+  aCtx.fillStyle = '#000000';
+  aCtx.fillRect(0,0,ARENA_W,ARENA_H);
+
+  for (let y=0;y<ROWS;y++) for (let x=0;x<COLS;x++){
+    const t = grid[y*COLS+x];
+    const px = x*TILE, py = y*TILE;
+    if (t === FLOOR){
+      aCtx.drawImage(((x+y)&1) ? TXT.floorA : TXT.floorB, px, py);
+    } else if (t === BRICK){
+      aCtx.drawImage(TXT.brick, px, py);
+    } else if (t === TECH){
+      aCtx.drawImage(TXT.tech, px, py);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   РАДУЖНАЯ КАЙМА НА СТЕНАХ.
+   Рисуется не в статичную текстуру, а каждый кадр поверх арены — поэтому
+   цвет бежит по периметру. Грани выводятся только там, где сосед — пол:
+   внутренние стыки между блоками не светятся, получается чёткий контур.
+   --------------------------------------------------------------------------- */
+function drawRainbowEdges(t){
+  const phase = t * 0.16;          /* скорость перелива */
+  const TH = 3;                    /* толщина линии */
+
+  /* проходим по всем клеткам-стенам */
+  for (let y=0;y<ROWS;y++){
+    for (let x=0;x<COLS;x++){
+      const isBarrel = G.barrels.some(b => b.x===x && b.y===y);
+      if (grid[y*COLS+x] === FLOOR && !isBarrel) continue;
+
+      const px = x*TILE, py = y*TILE;
+
+      /* фаза зависит от позиции: перелив идёт по диагонали */
+      const ph = phase + (x + y) * 0.035;
+
+      const up    = (y === 0)        || grid[(y-1)*COLS + x] === FLOOR;
+      const down  = (y === ROWS-1)   || grid[(y+1)*COLS + x] === FLOOR;
+      const left  = (x === 0)        || grid[y*COLS + (x-1)] === FLOOR;
+      const right = (x === COLS-1)   || grid[y*COLS + (x+1)] === FLOOR;
+
+      /* верхняя грань */
+      if (up){
+        const gr = g2.createLinearGradient(px, py, px+TILE, py);
+        gr.addColorStop(0, rainbowAt(ph));
+        gr.addColorStop(1, rainbowAt(ph + 0.08));
+        g2.fillStyle = gr;
+        g2.fillRect(px, py, TILE, TH);
+      }
+      /* нижняя */
+      if (down){
+        const gr = g2.createLinearGradient(px, py+TILE, px+TILE, py+TILE);
+        gr.addColorStop(0, rainbowAt(ph + 0.5));
+        gr.addColorStop(1, rainbowAt(ph + 0.58));
+        g2.fillStyle = gr;
+        g2.fillRect(px, py+TILE-TH, TILE, TH);
+      }
+      /* левая */
+      if (left){
+        const gr = g2.createLinearGradient(px, py, px, py+TILE);
+        gr.addColorStop(0, rainbowAt(ph + 0.25));
+        gr.addColorStop(1, rainbowAt(ph + 0.33));
+        g2.fillStyle = gr;
+        g2.fillRect(px, py, TH, TILE);
+      }
+      /* правая */
+      if (right){
+        const gr = g2.createLinearGradient(px+TILE, py, px+TILE, py+TILE);
+        gr.addColorStop(0, rainbowAt(ph + 0.75));
+        gr.addColorStop(1, rainbowAt(ph + 0.83));
+        g2.fillStyle = gr;
+        g2.fillRect(px+TILE-TH, py, TH, TILE);
+      }
+    }
+  }
+}
+
+function buildArena(){
+  grid.fill(FLOOR);
+  for (let x=0;x<COLS;x++){ grid[x]=BRICK; grid[(ROWS-1)*COLS+x]=BRICK; }
+  for (let y=0;y<ROWS;y++){ grid[y*COLS]=BRICK; grid[y*COLS+COLS-1]=BRICK; }
+  paintArena();
+}
+
+/* ---------------------------------------------------------------------------
+   Арена начинается пустой. Дальше она обрастает сама: раз в минуту падаетт
+   этап — новые глыбы, блоки и (с третьей минуты) Враги.
+   --------------------------------------------------------------------------- */
+
+/* сколько свободных клеток достижимо из точки — проверка, что арену не замуровало */
+function floodCount(sx, sy){
+  if (isWall(sx,sy)) return 0;
+  const seen = new Uint8Array(COLS*ROWS);
+  const stack = [sy*COLS + sx];
+  seen[sy*COLS + sx] = 1;
+  let n = 0;
+  while (stack.length){
+    const idx = stack.pop(); n++;
+    const x = idx % COLS, y = (idx/COLS)|0;
+    const nb = [[x+1,y],[x-1,y],[x,y+1],[x,y-1]];
+    for (let k=0;k<4;k++){
+      const nx = nb[k][0], ny = nb[k][1];
+      if (!inB(nx,ny)) continue;
+      const i2 = ny*COLS + nx;
+      if (seen[i2] || grid[i2] !== FLOOR) continue;
+      seen[i2] = 1;
+      stack.push(i2);
+    }
+  }
+  return n;
+}
+
+function countFree(){
+  let n = 0;
+  for (let i=0;i<grid.length;i++) if (grid[i] === FLOOR) n++;
+  return n;
+}
+
+/* прилепить глыбу. Не влезает или задевает змейку — отступаем и пробуем снова */
+function addBlock(){
+  const sizes = [[1,1],[1,1],[2,1],[1,2],[2,2],[3,1]];
+  for (let attempt = 0; attempt < 80; attempt++){
+    const sz = pick(sizes), bw = sz[0], bh = sz[1];
+    const bx = 2 + rnd(COLS - 4 - bw);
+    const by = 2 + rnd(ROWS - 4 - bh);
+
+    let ok = true;
+    for (let j = -1; j <= bh && ok; j++){
+      for (let i = -1; i <= bw && ok; i++){
+        const cx = bx + i, cy = by + j;
+        if (!inB(cx,cy)) { ok = false; break; }
+        if (at(cx,cy) !== FLOOR) { ok = false; break; }
+        if (occ(cx,cy)) { ok = false; break; }
+      }
+    }
+    if (!ok) continue;
+
+    const h = G.snake[0];
+    if (h && (Math.abs(h.x - bx) + Math.abs(h.y - by)) < 3) continue;
+
+    /* запоминаем клетки, чтобы откатить, если замуруем арену */
+    const written = [];
+    for (let j = 0; j < bh; j++)
+      for (let i = 0; i < bw; i++){
+        const idx = (by+j)*COLS + bx+i;
+        written.push(idx);
+        grid[idx] = (rnd(6) === 0) ? TECH : BRICK;
+      }
+
+    /* этап не имеет права отрезать змейку от большей части арены */
+    if (h){
+      const reach = floodCount(h.x, h.y);
+      const total = countFree();
+      if (reach < total * 0.55){
+        for (const idx of written) grid[idx] = FLOOR;
+        continue;                      // блок не годится, пробуем другой
+      }
+    }
+
+    if (rnd(3) === 0){
+      const spot = freeCellAround(bx, by, bw, bh);
+      if (spot) addBarrel(spot.x, spot.y);
+    }
+    return true;
+  }
+  return false;
+}
+
+/* свободная клетка вплотную к свежей глыбе — туда ставим бочку */
+function freeCellAround(bx, by, bw, bh){
+  for (let k = 0; k < 40; k++){
+    const side = rnd(4);
+    let cx, cy;
+    if (side === 0){ cx = bx + rnd(bw); cy = by - 1; }
+    else if (side === 1){ cx = bx + rnd(bw); cy = by + bh; }
+    else if (side === 2){ cx = bx - 1; cy = by + rnd(bh); }
+    else { cx = bx + bw; cy = by + rnd(bh); }
+    if (!inB(cx,cy)) continue;
+    if (at(cx,cy) !== FLOOR) continue;
+    if (occ(cx,cy)) continue;
+    return {x:cx, y:cy};
+  }
+  return null;
+}
+
+/* этап усложнения */
+function escalate(){
+  G.level++;
+  const lvl = G.level;
+  const m = MODES[G.modeIdx];
+
+  const wantBlocks = Math.min(9, m.blocks + Math.floor(lvl/2));
+  let placed = 0;
+  for (let i = 0; i < wantBlocks; i++) if (addBlock()) placed++;
+
+  /* бочки копятся, но до предела — иначе арена превращается в кашу */
+  const wantBarrels = Math.min(10, m.barrels + Math.floor(lvl/2));
+  let bplaced = 0;
+  for (let i = 0; i < wantBarrels; i++){
+    const c = freeCell(5);
+    if (c && addBarrel(c.x, c.y)) bplaced++;
+  }
+  let hplaced = 0;
+
+  /* Враги: сколько влезет до потолка сложности */
+  if (lvl >= m.huntersFrom){
+    for (let k = 0; k < m.huntAdd; k++){
+      if (G.hunters.length >= m.huntCap) break;
+      const c = freeCell(9);
+      if (!c) break;
+      G.hunters.push({
+        x:c.x, y:c.y, t:0, moveT:0,
+        speed: m.huntSpeed + lvl * 0.04
+      });
+      hplaced++;
+    }
+  }
+
+  paintArena();
+  Snd.level();
+  announce('ЭТАП ' + lvl + ' — АРЕНА МЕНЯЕТСЯ', '#ff8a3c', 2.6);
+  G.log = 'этап ' + lvl + ': +' + placed + ' глыб, +' + bplaced + ' блоков' +
+          (hplaced ? ', +' + hplaced + ' Врагов' : '');
+}
+
+/* ================================================================ ПОРЧА ==
+   Раз в несколько секунд арена выкидывает случайную дичь.
+   ========================================================================== */
+const CORRUPTIONS = [
+  { id:'barrels', name:'ЗАВАЛ',   col:'#ff8a3c',
+    run(){ let n=0; for (let k=0;k<200 && n<7;k++){
+      if (addBarrel(1+rnd(COLS-2), 1+rnd(ROWS-2))) n++;
+    } return n ? n+' блоков появилось' : 'блоков больше не влезает'; } },
+
+  { id:'speed',  name:'ЯРОСТЬ',           col:'#ff3b18',
+    dur: 14, run(){ G.speedMul = 1.40; G.tempT = 14; return 'скорость +40% на 14 сек'; } },
+
+  { id:'slow',   name:'ТИШИНА',           col:'#7cf0ff',
+    dur: 12, run(){ G.speedMul = 0.68; G.tempT = 12; return 'всё замедлилось. даже ты'; } },
+
+  { id:'med',    name:'ДОЖДЬ СЕРДЕЧЕК',   col:'#ffffff',
+    run(){ /* потолок жёсткий: на карте не может быть больше двух сердец */
+      let n=0;
+      for (let k=0;k<400 && countType('med')<2;k++){
+        const cx=1+rnd(COLS-2), cy=1+rnd(ROWS-2);
+        if (at(cx,cy)===FLOOR && !occ(cx,cy)){ G.pickups.push({x:cx,y:cy,t:'med'}); n++; }
+        else continue;
+      }
+      return n ? n+' сердечек упало с неба' : 'сердец на карте уже два'; } },
+
+  { id:'boss',   name:'НЕЖДАННЫЙ БОНУС',     col:'#ffcf3c',
+    run(){ G.score += 50; G.blink = 3; return '+50 очков. очки начислены'; } },
+
+  { id:'flick',  name:'МИГАЮЩИЙ СВЕТ',    col:'#c2d86a',
+    dur: 9, run(){ G.flicker = 9; return 'свет ушёл курить на 9 секунд'; } },
+
+    { id:'mirror', name:'ЗЕРКАЛЬНЫЙ ЗАЛ', col:'#c06cff', dur: 11,
+    run(){
+      if (G.mirrored) return 'карта уже вывернута наизнанку';
+      if (!mirrorWorld()) return 'выворачивать некуда — стены сошлись';
+      G.mirrored = true;
+      G.mirror = 11;
+      G.shake = Math.min(16, G.shake + 8);
+      return 'стены поменялись сторонами. кнопки как были';
+    } },
+
+  { id:'tangle', name:'СПАГЕТТИ-РЕЖИМ',   col:'#e6c34a',
+    dur: 13, run(){ G.spaghetti = 13; return 'хвост распутался и запутался снова'; } },
+
+  { id:'hunters', name:'ВРАГИ ПРОСНУЛИСЬ', col:'#ffffff',
+    run(){ const m = MODES[G.modeIdx];
+      let n=0;
+      for (let k=0;k<160 && G.hunters.length < m.huntCap; k++){
+        const c = freeCell(9);
+        if (!c) break;
+        G.hunters.push({ x:c.x, y:c.y, t:0, moveT:0,
+          speed: m.huntSpeed + 0.2 });
+        n++;
+      }
+      return n ? n+'х Врагов вылезло охотиться' : 'Враги не пролезли'; } },
+
+  { id:'smoke', name:'БЕЛЫЙ ШУМ', col:'#ffffff',
+    dur: 12, run(){ G.noise = 12; return 'сигнал рассыпался на помехи'; } },
+
+  { id:'dark', name:'ТЕМНОТА', col:'#5a4a7a',
+    dur: 13, run(){ G.dark = 13; G.lightAng = Math.atan2(G.dir.y, G.dir.x);
+      return 'свет погас. в руках фонарик — светит только вперёд'; } },
+
+  { id:'collapse', name:'ОБВАЛ ПЕРИМЕТРА', col:'#c9a06a',
+    run(){ let n=0; for (let i=0;i<5;i++) if (addBlock()) n++;
+      paintArena(); return n ? 'потолок сыпется: +'+n+' стен' : 'стенам негде упасть'; } },
+
+  { id:'reverse', name:'ДВОЕНИЕ В ГЛАЗАХ', col:'#ff5cc8',
+    dur: 11, run(){ G.double = 11; return 'картинка двоится. где ты на самом деле — непонятно'; } },
+
+  { id:'greed', name:'ЖАДНОСТЬ', col:'#ffcf3c',
+    run(){ /* только патроны: сферу этот забег не размножает */
+      const cap = MODES[G.modeIdx].ammoCap + 2;
+      let n=0; for (let k=0;k<300 && n<3 && countType('ammo')<cap;k++){
+      const cx=1+rnd(COLS-2), cy=1+rnd(ROWS-2);
+      if (at(cx,cy)===FLOOR && !occ(cx,cy)){ G.pickups.push({x:cx, y:cy, t:'ammo'}); n++; }
+    } return n ? n+' ячеек энергии' : 'патронам уже некуда'; } },
+
+];
+
+/* добавить бочку — единственный вход, поэтому лимит держится всегда */
+function addBarrel(cx, cy){
+  if (G.barrels.length >= BARREL_CAP) return false;
+  if (at(cx,cy) !== FLOOR) return false;
+  if (occ(cx,cy)) return false;
+  G.barrels.push({x:cx, y:cy, fuse:0});
+  return true;
+}
+
+/* свободна ли клетка от змейки и предметов */
+function occ(cx,cy){
+  for (const s of G.snake)   if (s.x===cx && s.y===cy) return true;
+  for (const b of G.barrels) if (b.x===cx && b.y===cy) return true;
+  for (const p of G.pickups) if (p.x===cx && p.y===cy) return true;
+  for (const im of G.hunters) if (im.x===cx && im.y===cy) return true;
+  return false;
+}
+
+/* ============================================================== СОСТОЯНИЕ */
+/* Причина смерти — одна строка, которую видит игрок. */
+const CAUSES = {
+  wall:'смерть: врезался в стену',
+  self:'смерть: сожрал собственный хвост',
+  barrel:'смерть: врезался в блок',
+  turn:'смерть: развернулся на 180°',
+  hunter:'смерть: тебя достал Враг',
+  hunger:'смерть: голод'
+};
+
+const G = {
+  state:'menu',
+  snake:[], dir:{x:1,y:0}, queue:[], grow:0,
+  barrels:[], pickups:[],
+  score:0, hp:MAX_HEARTS, maxHp:MAX_HEARTS, ammo:0, kills:0,
+  speedMul:1, baseSpeed:7.2, tempT:0,
+  corrT:0, corr:null, corrName:'', corrLeft:0, log:'', armed:false,
+  level:0, escT:0, hunters:[], smoke:0, blood:0, noise:0, dark:0, lastCorr:'', reverse:0, double:0, mirrored:false,
+  corrSeq:0, corrHist:[], currCorr:'', histTxt:'', corrDesc:'',
+  corrAt:0, corrDur:0, corrCol:'#c06cff',
+  modeIdx:1, mapIdx:0, shootCd:0, pickupCd:0, shotFired:0, soulCd:0, bullets:[],
+  mapT:0, hueShift:0,
+  shotsFired:0, wallsShot:0,
+  flicker:0, mirror:0, spaghetti:0, blink:0, lightAng:0,
+  particles:[], shake:0, flash:0, flashCol:'#fff',
+  ann:{text:'', col:'#fff', t:0, dur:0},
+  cause:'', steps:0, time:0, corrCount:0,
+  stepT:0, tangled:false, holy:0,
+  hunger:HUNGER_MAX,   /* сколько секунд осталось до смерти от голода */
+  hungerWarn:0         /* отрицательное — остываем после последнего предупреждения */
+};
+
+/* ============================================================== ПАРТИКЛЫ */
+function burst(px, py, n, col, spd, life){
+  for (let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, v = spd*(0.3+Math.random());
+    G.particles.push({
+      x:px, y:py, vx:Math.cos(a)*v, vy:Math.sin(a)*v,
+      life: life*(0.6+Math.random()*0.7), max:life, col,
+      r: 1.5 + Math.random()*3.5
+    });
+  }
+}
+function announce(text, col, dur){
+  G.ann = { text, col, t:0, dur: dur||2.6 };
+}
+
+/* ================================================================ ЗВУКИ == */
+function boom(px, py){
+  Snd.barrel();
+  burst(px, py, 46, '#ff8a3c', 190, .75);
+  burst(px, py, 22, '#ffd23c', 130, .55);
+  G.shake = Math.min(22, G.shake + 13);
+  G.flash = .55; G.flashCol = '#ff8a3c';
+}
+
+/* ============================================================ УРОН/СМЕРТЬ */
+function hurt(amount, cause){
+  if (G.state !== 'play') return;
+  G.hp = Math.max(0, G.hp - amount);
+  Snd.hurt();
+  G.shake = Math.min(18, G.shake + 7);
+  G.flash = .38; G.flashCol = '#ff2020';
+  if (G.hp <= 0){ die(cause); }
+}
+
+function die(cause){
+  if (G.state === 'over') return;
+  G.state = 'over';
+  G.cause = cause;
+  Snd.dead();
+  const h = G.snake[0];
+  if (h) burst(h.x*TILE+TILE/2, h.y*TILE+TILE/2, 70, '#ff3b18', 210, 1.0);
+  if (h) burst(h.x*TILE+TILE/2, h.y*TILE+TILE/2, 40, '#c2d86a', 150, .8);
+  G.shake = 26;
+  Music.setReverb(false);
+  showOver();
+}
+
+/* ================================================================ СПАВН == */
+function freeCell(minDistFromHead){
+  for (let k=0;k<400;k++){
+    const cx = 1+rnd(COLS-2), cy = 1+rnd(ROWS-2);
+    if (at(cx,cy) !== FLOOR) continue;
+    if (occ(cx,cy)) continue;
+    if (minDistFromHead){
+      const h = G.snake[0];
+      if (h && Math.abs(h.x-cx) + Math.abs(h.y-cy) < minDistFromHead) continue;
+    }
+    return {x:cx, y:cy};
+  }
+  return null;
+}
+
+function countType(t){
+  let n = 0;
+  for (const p of G.pickups) if (p.t === t) n++;
+  return n;
+}
+
+/* поставить предмет конкретного типа; сферу — только если её ещё нет */
+function spawnPickupType(t){
+  if (t === 'soul' && countType('soul') > 0) return false;
+  /* сердец на карте не больше двух — проверка на любом пути появления */
+  if (t === 'med' && countType('med') >= 2) return false;
+  const c = freeCell(4);
+  if (!c) return false;
+  G.pickups.push({x:c.x, y:c.y, t});
+  return true;
+}
+
+function spawnPickup(){
+  return spawnPickupType('soul');
+}
+
+/* ---------------------------------------------------------------------------
+   ПРЕДМЕТЫ. Раньше их было четыре сразу и они мгновенно восполнялись — длина
+   росла сама собой. Теперь на поле их мало, и каждый новый ждёт своей паузы.
+   --------------------------------------------------------------------------- */
+function topUpPickups(){
+  spawnPickupType('soul');      /* сфера на арене всегда одна */
+}
+
+/* постепенное появление: одно за раз, с паузой из режима */
+/* ---------------------------------------------------------------------------
+   ПОЯВЛЕНИЕ ПРЕДМЕТОВ.
+
+   Синяя сфера — ЕДИНСТВЕННЫЙ источник роста длины и на арене она ВСЕГДА одна:
+   забрали — через soulDelay появилась следующая.
+   Аптечки и патроны длину не растят вообще, живут по таймеру и с потолком.
+   --------------------------------------------------------------------------- */
+/* ============================================================== ГОЛОД ==
+   Сфера — единственный источник роста, но теперь она ещё и еда.
+   Не съел за HUNGER_MAX секунд — умер. Таймер не крутится, пока змейка
+   стоит до первого нажатия, и обнуляется на каждой съеденной сфере.
+   ---------------------------------------------------------------------- */
+function updateHunger(dt){
+  G.hunger -= dt;
+
+  /* урчание в животе: сначала тихо и редко, к финалу — часто и низко.
+     Звук идёт «толчками», а не каждый кадр, иначе сливается в сплошной вой. */
+  const left = Math.max(0, G.hunger);
+  const f = clamp(left / HUNGER_MAX, 0, 1);        /* 1 — сыт, 0 — край */
+
+  if (left <= 12){
+    G.hungerWarn -= dt;
+    if (G.hungerWarn <= 0){
+      Snd.hungry(1 - f);                            /* 0..1, насколько голоден */
+      G.hungerWarn = 0.55 + f * 1.9;                /* чем ближе смерть, тем чаще */
+    }
+  } else {
+    G.hungerWarn = 0;
+  }
+
+  if (G.hunger <= 0){
+    G.hunger = 0;
+    die('hunger');
+  }
+}
+
+function updatePickups(dt){
+  const m = MODES[G.modeIdx];
+
+  /* --- синяя сфера: ровно одна и появляется редко ---
+     Именно она растит длину, поэтому пауза после каждого съеденного шара
+     считается заново и не даёт змейке раздуться за полминуты.             */
+  if (countType('soul') > 0){
+    G.soulCd = m.soulDelay;
+  } else {
+    G.soulCd -= dt;
+    if (G.soulCd <= 0)
+      G.soulCd = spawnPickupType('soul') ? m.soulDelay : 1.0;
+  }
+
+  /* --- аптечки и патроны: редкий шанс ---
+     аптечка выпадает с шансом 1 к 15, патрон — 1 к 20. Проверка идёт раз в
+     m.pickCd секунд, поэтому на деле предметы сыплются в среднем раз в 20-40
+     секунд, а не горстями, как было в первой версии.                        */
+  G.pickupCd -= dt;
+  if (G.pickupCd > 0) return;
+  G.pickupCd = m.pickCd;
+
+  if (countType('med')  < m.medCap  && Math.random() < 1/ROLL_MED ) spawnPickupType('med');
+  if (countType('ammo') < m.ammoCap && Math.random() < 1/ROLL_AMMO) spawnPickupType('ammo');
+}
+
+/* ================================================================ РЕСЕТ == */
+function startRun(){
+  G.snake = [];
+  for (let i=0;i<4;i++) G.snake.push({x:8-i, y:(ROWS>>1)});
+  G.dir = {x:1,y:0}; G.queue = [];
+  G.grow = 0; G.score = 0; G.kills = 0;
+  G.hp = MAX_HEARTS; G.maxHp = MAX_HEARTS;   /* три сердца — жёсткий потолок */
+  G.ammo = 0;                 /* энергии на старте нет */
+  G.speedMul = 1; G.tempT = 0;
+  G.barrels = []; G.pickups = []; G.particles = [];
+  G.flicker=0; G.mirror=0; G.spaghetti=0; G.blink=0; G.holy=0;
+  G.shake=0; G.flash=0; G.cause=''; G.steps=0; G.time=0; G.corrCount=0;
+  G.stepT=0; G.tangled=false;
+  G.hunger = HUNGER_MAX;   /* на старте сыт по горло */
+  G.hungerWarn = 0;
+  G.corrT = 7; G.corr=null; G.corrName=''; G.corrLeft=0;
+  G.level = 0; G.hunters = []; G.smoke = 0; G.blood = 0; G.noise = 0; G.dark = 0;
+  G.double = 0; G.mirrored = false;
+  G.reverse = 0; G.lastCorr = ''; G.corrHist = []; G.currCorr = '';
+  G.corrAt = 0; G.corrDur = 0; G.corrCol = '#c06cff';
+  G.shootCd = 0; G.shotFired = 0;
+  G.bullets = []; G.shotsFired = 0; G.wallsShot = 0;
+  G.mapT = 0; G.hueShift = 0;
+  G.escT = MODES[G.modeIdx].esc0;      /* первый этап приходит рано */
+  G.pickupCd = 3.0;      /* первая аптечка/патроны не сразу */
+  G.soulCd   = 0.3;      /* сфера появляется сразу, она тут главная */
+
+  buildArena();       /* поле: рамка плюс стартовые глыбы */
+
+  /* с самого начала немного препятствий — пустого поля больше нет */
+  const startBlocks = MODES[G.modeIdx].blocks + 2;
+  for (let i = 0; i < startBlocks; i++) addBlock();
+  /* и пара бочек, чтобы сразу приходилось думать */
+  for (let i = 0; i < 3; i++){
+    const c = freeCell(6);
+    if (c) addBarrel(c.x, c.y);
+  }
+  paintArena();
+
+  /* на старте одна сфера — и всё, никаких горстей предметов */
+  G.pickups = [];
+  spawnPickupType('soul');
+
+  /* на высокой сложности пара Врагов уже на арене */
+  if (MODES[G.modeIdx].huntersFrom <= 1){
+    const want = MODES[G.modeIdx].huntCap >= 6 ? 2 : 1;
+    for (let i = 0; i < want; i++){
+      const c = freeCell(12);
+      if (c) G.hunters.push({ x:c.x, y:c.y, t:0, moveT:0,
+        speed: MODES[G.modeIdx].huntSpeed });
+    }
+  }
+  G.armed = false;
+  announce('ПОЛЗИ', '#c2d86a', 1.4);
+  G.state = 'play';
+  hideAll();
+  Music.setReverb(true);      /* в забеге музыка звучит «в помещении» */
+}
+
+/* ============================================================ ОБНОВЛЕНИЕ == */
+function stepSnake(){
+  const h = G.snake[0];
+
+  if (G.queue.length){
+    const nd = G.queue.shift();
+    if (nd.x === -G.dir.x && nd.y === -G.dir.y){ die('turn'); return; }
+    if (!(nd.x === G.dir.x && nd.y === G.dir.y)){ G.dir = nd; Snd.turn(); }
+  }
+
+  const nx = h.x + G.dir.x, ny = h.y + G.dir.y;
+
+  /* стена */
+  if (isWall(nx,ny)){ die('wall'); return; }
+
+  /* препятствие: просто стена, наскочил — конец */
+  if (G.barrels.some(b => b.x===nx && b.y===ny)){ die('barrel'); return; }
+
+  /* себя */
+  const last = G.snake.length - 1;
+  for (let i=0;i<G.snake.length;i++){
+    if (i === last && G.grow === 0) continue;      // хвост уйдёт в этом шаге
+    if (G.snake[i].x === nx && G.snake[i].y === ny){ die('self'); return; }
+  }
+
+  G.snake.unshift({x:nx, y:ny});
+
+  /* предмет */
+  const pi = G.pickups.findIndex(p => p.x===nx && p.y===ny);
+  if (pi >= 0){
+    const p = G.pickups[pi];
+    G.pickups.splice(pi,1);
+    Snd.pick();
+    G.flash = .3; G.flashCol = p.t==='med' ? '#54d67a' : p.t==='ammo' ? '#ffcf3c' : '#7cf0ff';
+    const px = nx*TILE+TILE/2, py = ny*TILE+TILE/2;
+    if (p.t === 'med'){
+      /* сердечко возвращает одно из трёх. Если полон — оно не пропадает
+         зря, а превращается в очки: 40 вместо 10. */
+      if (G.hp < G.maxHp){
+        G.hp = Math.min(G.maxHp, G.hp + 1);
+        G.score += 10;
+        announce('+1 СЕРДЦЕ', '#ffffff', 1.1);
+      } else {
+        G.score += 40;
+        announce('СЕРДЦА ПОЛНЫ +40', '#ffffff', 1.1);
+      }
+      burst(px,py,16,'#ffffff',90,.5);
+    } else if (p.t === 'ammo'){
+      /* патроны — только для отстрела стен */
+      G.score += 20;
+      G.ammo = Math.min(AMMO_MAX, G.ammo + 5);
+      burst(px,py,16,'#ffcf3c',90,.5);
+      announce('+5 ЭНЕРГИИ', '#ffcf3c', 1.1);
+    } else {
+      /* ЕДИНСТВЕННЫЙ источник роста длины */
+      G.score += 50;  G.grow += 2;
+      G.holy = 1.2;
+      G.soulCd = MODES[G.modeIdx].soulDelay;   /* следующая появится с задержкой */
+      G.hunger = HUNGER_MAX;                   /* сфера — это еда: голод обнулён */
+      G.hungerWarn = 0;
+      burst(px,py,24,'#7cf0ff',120,.7);
+      announce('СФЕРА +2 К ДЛИНЕ', '#7cf0ff', 1.4);
+    }
+  }
+
+  if (G.grow > 0) G.grow--; else G.snake.pop();
+
+  G.steps++;
+  if (G.steps % 12 === 0) G.score += 1;
+}
+
+/* ---------------------------------------------------------------------------
+   ОТСТРЕЛ СТЕН.
+
+   Раньше пробел вышибал клетку РОВНО перед головой — но змейка ползёт
+   непрерывно, подойти вплотную и успеть нажать физически невозможно,
+   поэтому казалось, что отстрел не работает вовсе.
+
+   Теперь стрельба АВТОМАТИЧЕСКАЯ: как только патрон готов, червяк сам
+   находит ближайшую стену в передней полусфере и посылает в неё пулю.
+   Пуля вылетает из головы и летит к цели, выбивая стену при попаренынии.
+   Рамку арены не пробиваем — иначе змейка сбежит.
+   --------------------------------------------------------------------------- */
+
+/* можно ли стрелять в эту клетку: внутри арены, не рамка, не пол */
+function isShootable(cx, cy){
+  if (!inB(cx, cy)) return false;
+  if (cx <= 0 || cy <= 0 || cx >= COLS-1 || cy >= ROWS-1) return false;
+  return at(cx, cy) !== FLOOR;
+}
+
+/* ближайшая стена. Сначала проверяем клетку прямо по курсу — это смерть,
+   потом самую близкую стену в передней полусфере радиусом 6 клеток. */
+/* ВЫБОР ЦЕЛИ.
+   Приоритет всегда у Врага, даже если стена ближе. Стреляем в него,
+   если он в передней полусфере в пределах досягаемости. Если Врагов
+   рядом нет — бьём по ближайшей стене. */
+function findWallTarget(){
+  const h = G.snake[0];
+  if (!h) return null;
+
+  const R = 8;
+
+  /* ── сначала Враги ── */
+  let bestH = null, bestHD = 1e9;
+  for (const im of G.hunters){
+    const dx = im.x - h.x, dy = im.y - h.y;
+    const d = Math.abs(dx) + Math.abs(dy);
+    if (d === 0 || d > R) continue;
+    if (dx*G.dir.x + dy*G.dir.y < 0) continue;   /* только впереди */
+    if (d < bestHD){ bestHD = d; bestH = { x:im.x, y:im.y, hunter:true }; }
+  }
+  if (bestH) return bestH;
+
+  /* ── потом стены: сначала клетка прямо по курсу ── */
+  const ax = h.x + G.dir.x, ay = h.y + G.dir.y;
+  if (isShootable(ax, ay)) return { x:ax, y:ay, hunter:false };
+
+  let best = null, bestD = 1e9;
+  for (let dy = -6; dy <= 6; dy++){
+    for (let dx = -6; dx <= 6; dx++){
+      if (!dx && !dy) continue;
+      const d = Math.abs(dx) + Math.abs(dy);
+      if (d > 6 || d >= bestD) continue;
+      if (dx*G.dir.x + dy*G.dir.y < 0) continue;
+      const cx = h.x + dx, cy = h.y + dy;
+      if (!isShootable(cx, cy)) continue;
+      bestD = d;
+      best = { x:cx, y:cy, hunter:false };
+    }
+  }
+  return best;
+}
+
+/* пустить пулю из головы в сторону клетки */
+function fireAt(tx, ty){
+  const h = G.snake[0];
+  const sx = h.x*TILE + TILE/2;
+  const sy = h.y*TILE + TILE/2;
+  const ex = tx*TILE + TILE/2;
+  const ey = ty*TILE + TILE/2;
+  const dx = ex - sx, dy = ey - sy;
+  const dist = Math.hypot(dx, dy) || 1;
+
+  G.bullets.push({
+    x: sx, y: sy,
+    vx: dx/dist * BULLET_SPEED,
+    vy: dy/dist * BULLET_SPEED,
+    left: dist, tx, ty, trail: []
+  });
+
+  G.ammo--;
+  G.shootCd = 2.0;              /* перезарядка ровно 2 секунды */
+  G.shotFired++;
+  G.shotsFired++;
+  Snd.shoot();
+}
+
+/* автоматический выстрел — сам, как только патрон готов */
+function autoFire(){
+  if (G.state !== 'play' || !G.armed) return;
+  if (G.shootCd > 0 || G.ammo <= 0) return;
+  const tgt = findWallTarget();
+  if (!tgt) return;             /* рядом нет стен — патрон не тратим */
+  fireAt(tgt.x, tgt.y);
+}
+
+/* полёт пуль и разрушение стены в точке попареныния */
+function updateBullets(dt){
+  for (let i = G.bullets.length - 1; i >= 0; i--){
+    const b = G.bullets[i];
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.left -= BULLET_SPEED * dt;
+
+    b.trail.push(b.x, b.y);
+    if (b.trail.length > 16) b.trail.splice(0, 2);
+
+    if (b.left <= 0){
+      /* сперва Враг: даже если в клетке оказалась стена,
+         цель важнее препятствия */
+      const hi = G.hunters.findIndex(im =>
+        Math.abs(im.x - b.tx) <= 1 && Math.abs(im.y - b.ty) <= 1);
+      if (hi >= 0){
+        G.hunters.splice(hi, 1);
+        G.kills++;                 /* Враг снят пулей — идёт в счётчик */
+        G.score += 40;
+        G.shake = Math.min(14, G.shake + 6);
+        const hxx = b.tx*TILE + TILE/2, hyy = b.ty*TILE + TILE/2;
+        burst(hxx, hyy, 26, '#ffffff', 160, .6);
+        burst(hxx, hyy, 14, '#4a9eff', 110, .5);
+        announce('ВРАГ СНЯТ +40', '#ffffff', 1.2);
+        G.bullets.splice(i, 1);
+        continue;
+      }
+
+      if (isShootable(b.tx, b.ty)){
+        grid[b.ty*COLS + b.tx] = FLOOR;       /* стена выбита */
+        paintArena();
+        G.wallsShot++;
+        G.score += 15;
+        G.shake = Math.min(14, G.shake + 5);
+        const cx = b.tx*TILE + TILE/2, cy = b.ty*TILE + TILE/2;
+        burst(cx, cy, 22, '#4a9eff', 145, .55);
+        burst(cx, cy, 14, '#1e5bc8', 100, .45);
+        burst(cx, cy, 8,  '#d6ecff', 185, .3);
+      }
+      G.bullets.splice(i, 1);
+    }
+  }
+}
+
+
+/* ---------------------------------------------------------------------------
+   ЗЕРКАЛЬНЫЙ ЗАЛ — выворачивает САМУ КАРТУ, а не управление.
+
+   Раньше эффект отражал только картинку через canvas.scale(-1,1). Змейка при
+   этом визуально ползла в обратную сторону, и казалось, что вывернули кнопки.
+   Теперь переворачивается честно сетка стен: блок, стоявший справа, встаёт
+   слева. Управление остаётся прежним, змейка слушается как обычно.
+   --------------------------------------------------------------------------- */
+function mirrorWorld(){
+  if (!G.snake.length) return false;
+
+  const backup = grid.slice();
+
+  /* переворачиваем стены: x ↔ COLS-1-x */
+  for (let y = 0; y < ROWS; y++){
+    for (let x = 0; x < (COLS >> 1); x++){
+      const a = y*COLS + x, b = y*COLS + (COLS-1-x);
+      const t = grid[a]; grid[a] = grid[b]; grid[b] = t;
+    }
+  }
+
+  /* всё, что стоит на карте, не должно оказаться внутри стены */
+  const clearAt = (cx, cy) => {
+    if (!inB(cx,cy)) return;
+    if (cx <= 0 || cy <= 0 || cx >= COLS-1 || cy >= ROWS-1) return;
+    grid[cy*COLS + cx] = FLOOR;
+  };
+  for (const sgm of G.snake)  clearAt(sgm.x, sgm.y);
+  for (const b of G.barrels)  clearAt(b.x, b.y);
+  for (const p of G.pickups)  clearAt(p.x, p.y);
+  for (const im of G.hunters) clearAt(im.x, im.y);
+
+  /* если переворот замуровал змейку — откатываем */
+  const h = G.snake[0];
+  const reach = floodCount(h.x, h.y);
+  const free  = countFree();
+  if (reach < Math.max(40, free*0.35)){
+    grid.set(backup);
+    paintArena();
+    return false;
+  }
+
+  paintArena();
+  return true;
+}
+
+/* Враги: медленно ползут к голове змейки и кусают при контакте */
+/* ВРАГИ.
+   Кусают при касании ЛЮБОГО сегмента змейки — не только головы.
+   Раньше проверялась только голова, поэтому Враг мог стоять внутри
+   хвоста и не наносить урона. */
+function hunterBites(im){
+  const S = G.snake;
+  for (let k = 0; k < S.length; k++){
+    if (S[k].x === im.x && S[k].y === im.y) return true;
+  }
+  return false;
+}
+
+function hunterHit(im){
+  hurt(1, 'hunter');
+  G.shake = Math.min(20, G.shake + 9);
+  burst(im.x*TILE+16, im.y*TILE+16, 22, '#ffffff', 140, .6);
+  announce('ВРАГ УКУСИЛ! \u22121 СЕРДЦЕ', '#ffffff', 1.5);
+}
+
+function updateHunters(dt){
+  const h = G.snake[0];
+  if (!h) return;
+
+  for (let i = G.hunters.length - 1; i >= 0; i--){
+    const im = G.hunters[i];
+    if (!im) continue;
+
+    im.t += dt;
+
+    /* уже на теле — кусает немедленно, шаг не нужен */
+    if (hunterBites(im)){
+      G.hunters.splice(i, 1);
+      hunterHit(im);
+      continue;
+    }
+
+    im.moveT -= dt;
+    if (im.moveT > 0) continue;
+    im.moveT = 1 / Math.max(0.05, im.speed);
+
+    const dx = h.x - im.x, dy = h.y - im.y;
+    const opts = [];
+    if (Math.abs(dx) >= Math.abs(dy)){
+      if (dx) opts.push([Math.sign(dx), 0]);
+      if (dy) opts.push([0, Math.sign(dy)]);
+    } else {
+      if (dy) opts.push([0, Math.sign(dy)]);
+      if (dx) opts.push([Math.sign(dx), 0]);
+    }
+    opts.push([1,0],[-1,0],[0,1],[0,-1]);
+
+    for (const d of opts){
+      const nx = im.x + d[0], ny = im.y + d[1];
+      if (isWall(nx, ny)) continue;
+      if (G.barrels.some(b => b.x === nx && b.y === ny)) continue;
+      if (G.hunters.some(o => o !== im && o.x === nx && o.y === ny)) continue;
+      im.x = nx; im.y = ny;
+      break;
+    }
+
+    /* после шага — снова проверяем всё тело */
+    if (hunterBites(im)){
+      G.hunters.splice(i, 1);
+      hunterHit(im);
+    }
+  }
+}
+
+function updateCorruption(dt){
+  if (G.tempT > 0){
+    G.tempT -= dt;
+    if (G.tempT <= 0){ G.speedMul = 1; }
+  }
+  if (G.flicker > 0) G.flicker -= dt;
+  G.mapT += dt;
+  if (MAPS[G.mapIdx].id === 'wonder') G.hueShift = (G.mapT * 42) % 360;
+
+  if (G.mirror > 0){
+    G.mirror -= dt;
+    /* время вышло — возвращаем карту как была */
+    if (G.mirror <= 0 && G.mirrored){
+      if (mirrorWorld()) G.mirrored = false;
+      else G.mirror = 2;
+    }
+  }
+  if (G.spaghetti>0) G.spaghetti -= dt;
+  if (G.holy    > 0) G.holy -= dt;
+
+  if (G.reverse > 0) G.reverse -= dt;
+  if (G.smoke   > 0) G.smoke   -= dt;
+  if (G.double  > 0) G.double  -= dt;   /* двоение в глазах */
+  if (G.blood   > 0) G.blood   -= dt;
+  if (G.noise   > 0) G.noise   -= dt;   /* белый шум */
+  if (G.dark    > 0) G.dark    -= dt;
+
+  /* этап усложнения раз в минуту */
+  G.escT -= dt;
+  if (G.escT <= 0){ G.escT = MODES[G.modeIdx].escStep; escalate(); }
+
+  /* порча арены: часто и без повторов подряд */
+  G.corrT -= dt;
+  if (G.corrT <= 0){
+    /* выбираем событие, которого давно не было. Когда выпали все — начинаем круг заново */
+    if (G.corrHist.length >= CORRUPTIONS.length) G.corrHist = [];
+    let c = pick(CORRUPTIONS);
+    for (let tries = 0; tries < 12 && (c.id === G.lastCorr || G.corrHist.includes(c.id)); tries++)
+      c = pick(CORRUPTIONS);
+    G.lastCorr = c.id;
+    G.corrHist.push(c.id);
+
+    const res = c.run();
+    G.corrCount++;
+    G.corrName = c.name;
+    G.currCorr = c.id;
+    G.corrDesc = res || '';
+    /* запоминаем, КОГДА событие началось и сколько длится:
+       по этим двум числам экран смерти поймёт, было ли оно активно */
+    G.corrAt  = G.time;
+    G.corrDur = c.dur || 0;
+    G.corrCol = c.col || '#c06cff';
+
+    /* чем дальше играешь, тем чаще сыпется; потолок зареныёт режим */
+    const m = MODES[G.modeIdx];
+    const base = Math.max(m.corrMin, m.corr - G.level*0.7);
+    G.corrT = base + Math.random()*4.0;
+
+    announce('СОБЫТИЕ: ' + c.name, c.col, 3.0);
+    G.log = (G.corrCount + '. ' + c.name + ' — ' + res);
+    G.histTxt = 'событий: ' + G.corrCount;
+  }
+}
+
+function update(dt){
+  G.time += dt;
+
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - dt*38);
+  if (G.flash > 0) G.flash = Math.max(0, G.flash - dt*2.2);
+  if (G.blink > 0) G.blink -= dt;
+
+  /* партиклы */
+  for (let i=G.particles.length-1;i>=0;i--){
+    const p = G.particles[i];
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vx *= 0.94; p.vy *= 0.94; p.vy += 40*dt*0.1;
+    p.life -= dt;
+    if (p.life <= 0) G.particles.splice(i,1);
+  }
+
+  /* анонс */
+  if (G.ann.dur > 0) G.ann.t += dt;
+
+  if (G.shootCd > 0) G.shootCd = Math.max(0, G.shootCd - dt);
+
+  if (G.state !== 'play') return;
+  if (!G.armed) return;            /* стоим и ждём первого нажатия */
+
+  updateCorruption(dt);
+  updateHunters(dt);
+  updatePickups(dt);
+  updateHunger(dt);
+  autoFire();          /* червяк стреляет сам */
+  updateBullets(dt);   /* пули летят и выбивают стены */
+
+  /* шаг змейки по таймеру */
+  const spd = MODES[G.modeIdx].speed * G.speedMul * (1 + Math.min(1.2, G.steps/1400));
+  G.stepT += dt * spd;
+  while (G.stepT >= 1 && G.state === 'play'){
+    G.stepT -= 1;
+    stepSnake();
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   СЛОЙ ДЛЯ ФОНАРИКА. Отдельный canvas нужен, чтобы «вырезать» свет из тьмы
+   через destination-out: сначала заливаем всё чёрным, потом пробиваем конус.
+   Так конус получается мягким по краям и не даёт швов.
+   --------------------------------------------------------------------------- */
+let _darkCv = null, _darkCtx = null;
+/* буфер для «двоения в глазах»: снимок всей сцены,
+   чтобы двоилось ВСЁ, а не только фон */
+let _dblCv = null, _dblCtx = null;
+function doubleLayer(){
+  if (!_dblCv){
+    _dblCv = document.createElement('canvas');
+    _dblCv.width = ARENA_W;
+    _dblCv.height = ARENA_H;
+    _dblCtx = _dblCv.getContext('2d');
+  }
+  return _dblCv;
+}
+
+function darkLayer(){
+  if (!_darkCv){
+    _darkCv = document.createElement('canvas');
+    _darkCv.width = ARENA_W;
+    _darkCv.height = ARENA_H;
+    _darkCtx = _darkCv.getContext('2d');
+  }
+  return _darkCv;
+}
+
+/* конус фонарика: пускаем лучи по сетке и обрезаем их о стены,
+   чтобы свет не проходил сквозь блоки */
+/* Есть ли прямая видимость от точки до центра клетки (cx,cy).
+   Идём вдоль отрезка мелким шагом; если наткнулись на стену РАНЬШЕ
+   цели — видимости нет. Сама цель-стена видимой считается: свет
+   падает на неё, мы её видим. */
+/* ══════════ ТЕНИ ОТ СТЕН ══════════
+
+   ПОЧЕМУ ОДИНОЧНЫЕ СТЕНЫ ТО ГАСЛИ, ТО НЕТ.
+
+   Сначала тень считалась по клеткам: смотрели, виден ли ЦЕНТР клетки,
+   и гасили её целиком. Тень одной стены — узкий конус шириной с клетку.
+   Клетка за ней тоже 32 пикселя, и её центр легко оказывается в просвете
+   между лучами тени, хотя края закрыты. Центр виден — клетка не гаснет.
+   Сдвинул голову на пару пикселей — центр попал в тень, и она появилась.
+   Отсюда «иногда есть, иногда нет».
+
+   Потом я пробовал строить трапецию от углов стены. Но начало тени
+   приходилось смещать вперёд, чтобы не накрыть саму стену, и между
+   стеной и тенью оставался светлый зазор.
+
+   КАК СДЕЛАНО ТЕПЕРЬ. Для каждой стены берём её углы и проекции этих
+   углов на расстояние фонарика, строим выпуклую оболочку — это и есть
+   тень. А прямоугольник самой стены вырезаем из неё режимом evenodd:
+   стена остаётся видимой, тень начинается ровно от её граней.
+   Никаких зазоров и никакой зависимости от положения головы. */
+
+/* выпуклая оболочка — обходом Эндрю */
+function hullOf(pts){
+  if (pts.length < 3) return pts;
+
+  pts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+  const cross = (o, a, b) =>
+    (a[0]-o[0]) * (b[1]-o[1]) - (a[1]-o[1]) * (b[0]-o[0]);
+
+  const lower = [];
+  for (const q of pts){
+    while (lower.length >= 2 &&
+           cross(lower[lower.length-2], lower[lower.length-1], q) <= 0) lower.pop();
+    lower.push(q);
+  }
+
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--){
+    const q = pts[i];
+    while (upper.length >= 2 &&
+           cross(upper[upper.length-2], upper[upper.length-1], q) <= 0) upper.pop();
+    upper.push(q);
+  }
+
+  lower.pop(); upper.pop();
+  return lower.concat(upper);
+}
+
+/* угол относительно взгляда, в пределах ±π */
+function relAngle(a, ang){
+  let r = a - ang;
+  while (r >  Math.PI) r -= Math.PI*2;
+  while (r < -Math.PI) r += Math.PI*2;
+  return r;
+}
+
+/* Тени всех стен в конусе. Каждая — оболочка плюс прямоугольник стены,
+   который вырезается при заливке. */
+/* Прямая видимость от точки до центра клетки.
+   Нужна, чтобы понять, какие стены реально освещены: только их
+   вырезаем из тени. Сама цель себя не заслоняет. */
+function losClear(x0, y0, tx, ty, tcx, tcy){
+  const dx = tx - x0, dy = ty - y0;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 1) return true;
+
+  const step = TILE * 0.3;
+  const n = Math.ceil(dist / step);
+  const ux = dx / n, uy = dy / n;
+
+  for (let i = 1; i < n; i++){
+    const gx = Math.floor((x0 + ux*i) / TILE);
+    const gy = Math.floor((y0 + uy*i) / TILE);
+    if (gx === tcx && gy === tcy) continue;
+    if (isWall(gx, gy)) return false;
+  }
+  return true;
+}
+
+/* Тени всех стен в конусе.
+
+   ФОРМА. Тень от квадратной стены — это трапеция между двумя
+   СИЛУЭТНЫМИ углами (крайними по углу обзора) и их проекциями на
+   расстояние фонарика. Выпуклая оболочка всех восьми точек шире:
+   она захватывает и те углы, что не дают границы тени, и тень
+   наползает на освещённые места сбоку.
+
+   ВИДИМОСТЬ. Каждая стена помечается: доходит ли до неё прямая.
+   По этой пометке освещённые стены вырезаются из тени — иначе
+   оболочка соседа гасила бы их. */
+function shadowShapes(hx, hy, ang, half, reach){
+  const shapes = [];
+  const span = Math.ceil(reach / TILE) + 1;
+  const cx0 = Math.max(0, Math.floor(hx/TILE) - span);
+  const cx1 = Math.min(COLS - 1, Math.floor(hx/TILE) + span);
+  const cy0 = Math.max(0, Math.floor(hy/TILE) - span);
+  const cy1 = Math.min(ROWS - 1, Math.floor(hy/TILE) + span);
+
+  const r2 = reach * reach;
+
+  for (let cy = cy0; cy <= cy1; cy++){
+    for (let cx = cx0; cx <= cx1; cx++){
+      if (!isWall(cx, cy)) continue;
+
+      const x0 = cx*TILE, y0 = cy*TILE;
+      const x1 = x0 + TILE, y1 = y0 + TILE;
+      const corners = [[x0,y0], [x1,y0], [x1,y1], [x0,y1]];
+
+      /* крайние по углу обзора углы — именно они задают границы тени */
+      let minR =  Infinity, maxR = -Infinity;
+      let pMin = null, pMax = null;
+
+      for (let k = 0; k < 4; k++){
+        const px = corners[k][0], py = corners[k][1];
+        const dx = px - hx, dy = py - hy;
+        const r = relAngle(Math.atan2(dy, dx), ang);
+        if (r < minR){ minR = r; pMin = corners[k]; }
+        if (r > maxR){ maxR = r; pMax = corners[k]; }
+      }
+
+      if (!pMin || !pMax) continue;
+      if (pMin[0] === pMax[0] && pMin[1] === pMax[1]) continue;
+      if (maxR - minR > Math.PI) continue;         /* стена за спиной */
+      if (maxR < -half - 0.25 || minR > half + 0.25) continue;
+
+      /* проекции силуэтных углов на расстояние фонарика.
+         Без фильтра по конусу: иначе у стены на краю тень кособокая. */
+      const proj = (px, py) => {
+        const dx = px - hx, dy = py - hy;
+        const d = Math.hypot(dx, dy) || 1;
+        const k = (d < reach ? reach / d : 1);
+        return [hx + dx*k, hy + dy*k];
+      };
+
+      const a = proj(pMin[0], pMin[1]);
+      const b = proj(pMax[0], pMax[1]);
+
+      /* доходит ли свет до самой стены */
+      const wcx = x0 + TILE/2, wcy = y0 + TILE/2;
+      const wdx = wcx - hx, wdy = wcy - hy;
+      const inRange = (wdx*wdx + wdy*wdy) <= r2;
+      const visible = inRange && losClear(hx, hy, wcx, wcy, cx, cy);
+
+      shapes.push({
+        poly: [pMin, pMax, b, a],
+        wall: [x0, y0, TILE, TILE],
+        visible
+      });
+    }
+  }
+  return shapes;
+}
+
+function flashlightPath(ctx, hx, hy, ang, half, reach){
+  /* Почему не просто равномерная сетка лучей.
+     Восемнадцати лучей на конус мало: на дальнем краю соседние лучи
+     расходятся на два десятка пикселей, и одиночная стена проскакивает
+     между ними. Поэтому к сетке добавляем ТОЧНЫЕ углы на углы всех стен
+     в пределах досягаемости: каждый угол даёт два луча — чуть левее и
+     чуть правее себя. Граница тени всегда попадает между ними, поэтому
+     тень выходит резкой независимо от расстояния. */
+  const a0 = ang - half, a1 = ang + half;
+
+  /* 1. равномерная сетка — она заполняет сам конус */
+  const RAYS = 84;
+  const angs = [];
+  for (let i = 0; i <= RAYS; i++) angs.push(a0 + (a1 - a0) * (i / RAYS));
+
+  /* 2. углы стен, до которых достаёт фонарик */
+  const span = Math.ceil(reach / TILE) + 1;
+  const cx0 = Math.max(0, Math.floor(hx/TILE) - span);
+  const cx1 = Math.min(COLS - 1, Math.floor(hx/TILE) + span);
+  const cy0 = Math.max(0, Math.floor(hy/TILE) - span);
+  const cy1 = Math.min(ROWS - 1, Math.floor(hy/TILE) + span);
+
+  const EPS = 0.0016;          /* на сколько отступить от угла в сторону */
+  const r2  = reach * reach;
+
+  for (let cy = cy0; cy <= cy1; cy++){
+    for (let cx = cx0; cx <= cx1; cx++){
+      if (!isWall(cx, cy)) continue;
+
+      const xs = [cx * TILE, cx * TILE + TILE];
+      const ys = [cy * TILE, cy * TILE + TILE];
+
+      for (let k = 0; k < 4; k++){
+        const px = xs[k >> 1], py = ys[k & 1];
+        const ddx = px - hx, ddy = py - hy;
+        if (ddx*ddx + ddy*ddy > r2) continue;      /* слишком далеко */
+
+        const ca = Math.atan2(ddy, ddx);
+
+        /* угол должен лежать внутри конуса */
+        let rel = ca - ang;
+        while (rel >  Math.PI) rel -= Math.PI*2;
+        while (rel < -Math.PI) rel += Math.PI*2;
+        if (Math.abs(rel) > half + 0.03) continue;
+
+        angs.push(ca - EPS, ca + EPS);
+      }
+    }
+  }
+
+  angs.sort((p, q) => p - q);
+
+  /* 3. пускаем лучи и строим многоугольник освещённой зоны */
+  const step = TILE / 5;
+  ctx.beginPath();
+  ctx.moveTo(hx, hy);
+
+  let prev = -1e9;
+  for (let i = 0; i < angs.length; i++){
+    const a = angs[i];
+    if (a - prev < 1e-5) continue;      /* почти совпадающий луч не нужен */
+    prev = a;
+
+    const cdx = Math.cos(a), cdy = Math.sin(a);
+    let d = 0;
+    while (d < reach){
+      d += step;
+      const px = hx + cdx*d, py = hy + cdy*d;
+      if (px < 0 || py < 0 || px >= ARENA_W || py >= ARENA_H) break;
+      if (isWall(Math.floor(px/TILE), Math.floor(py/TILE))) break;
+    }
+    if (d > reach) d = reach;
+    /* отступаем на пиксель: иначе свет протекает сквозь грань стены */
+    ctx.lineTo(hx + cdx*(d-1), hy + cdy*(d-1));
+  }
+
+  ctx.closePath();
+}
+
+/* ================================================================ РЕНДЕР == */
+/* ---------------------------------------------------------------------------
+   ЗМЕЙКА — чёрная с белой обводкой, без лица.
+   Одинакова на всех сложностях: сложность влияет на темп, а не на вид.
+   ========================================================================== */
+function drawSnake(){
+  const S = G.snake, n = S.length;
+  const t = performance.now()/1000;
+
+  for (let i=n-1;i>=0;i--){
+    const seg = S[i];
+    const taper = 1 - (i/Math.max(1,n))*0.22;
+    const wob = G.spaghetti > 0 ? Math.sin(t*7 + i*0.9)*3.4 : 0;
+    const cx = seg.x*TILE + TILE/2 + wob;
+    const cy = seg.y*TILE + TILE/2 + (G.spaghetti > 0 ? Math.cos(t*5.5 + i*0.7)*3.0 : 0);
+
+    const sz = TILE * 0.88 * taper;
+    g2.save();
+    g2.translate(cx, cy);
+
+    /* тело: чёрный квадрат с белой обводкой */
+    g2.fillStyle = '#0a0a0c';
+    g2.fillRect(-sz/2, -sz/2, sz, sz);
+
+    g2.strokeStyle = '#ffffff';
+    g2.lineWidth = i === 0 ? 2.2 : 1.6;
+    g2.strokeRect(-sz/2, -sz/2, sz, sz);
+
+    g2.restore();
+  }
+}
+
+function drawObjects(){
+  const t = performance.now()/1000;
+
+  for (const b of G.barrels){
+    g2.drawImage(SPR.barrel, b.x*TILE, b.y*TILE);
+  }
+
+  for (const p of G.pickups){
+    const bob = Math.sin(t*3 + p.x*1.3 + p.y)*2.2;
+    const img = p.t === 'med' ? SPR.medkit : p.t === 'ammo' ? SPR.ammo : SPR.soul;
+    if (p.t === 'soul'){
+      /* синее свечение обычным наложением: на светлой карте 'lighter'
+         выбеливал сферу до неузнаваемости */
+      const px = p.x*TILE + TILE/2;
+      const py = p.y*TILE + TILE/2 + bob;
+      const pulse = 0.85 + 0.15*Math.sin(t*3.4);
+
+      const glow = g2.createRadialGradient(px, py, 2, px, py, TILE*1.05*pulse);
+      glow.addColorStop(0,   'rgba(70,140,240,0.42)');
+      glow.addColorStop(0.55,'rgba(40,95,200,0.20)');
+      glow.addColorStop(1,   'rgba(20,50,140,0)');
+      g2.fillStyle = glow;
+      g2.beginPath(); g2.arc(px, py, TILE*1.05*pulse, 0, 7); g2.fill();
+
+      g2.fillStyle = 'rgba(0,0,0,.35)';
+      g2.beginPath(); g2.ellipse(p.x*TILE+TILE/2, p.y*TILE+TILE-3, 10, 3.5, 0,0,7); g2.fill();
+
+      g2.drawImage(img, p.x*TILE, p.y*TILE + bob);
+    } else if (p.t === 'med'){
+      /* сердечко выступает за клетку — компенсируем отступом */
+      g2.fillStyle = 'rgba(0,0,0,.4)';
+      g2.beginPath();
+      g2.ellipse(p.x*TILE+TILE/2, p.y*TILE+TILE-3, 13, 4.5, 0,0,7);
+      g2.fill();
+      g2.drawImage(img, p.x*TILE - MED_PAD, p.y*TILE - MED_PAD + bob);
+    } else {
+      g2.fillStyle = 'rgba(0,0,0,.4)';
+      g2.beginPath(); g2.ellipse(p.x*TILE+TILE/2, p.y*TILE+TILE-3, 11, 4, 0,0,7); g2.fill();
+      g2.drawImage(img, p.x*TILE, p.y*TILE + bob);
+    }
+  }
+}
+
+/* Враги: рогатые твари, ползут к тебе */
+/* ВРАГИ — чёрные фигуры с белой обводкой и рогами, без лица.
+   Тот же визуальный язык, что у змейки: чёрный силуэт, белый контур. */
+function drawHunters(){
+  const t = performance.now()/1000;
+
+  for (const im of G.hunters){
+    const cx = im.x*TILE + TILE/2;
+    const cy = im.y*TILE + TILE/2 + Math.sin(t*3 + im.x)*1.2;
+    const r  = TILE*0.36;
+
+    /* слабое белое свечение — чтобы читались на чёрном полу */
+    const gr = g2.createRadialGradient(cx, cy, 2, cx, cy, TILE*0.95);
+    gr.addColorStop(0, 'rgba(255,255,255,.12)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g2.fillStyle = gr;
+    g2.beginPath(); g2.arc(cx, cy, TILE*0.95, 0, 7); g2.fill();
+
+    /* тень */
+    g2.fillStyle = 'rgba(0,0,0,.5)';
+    g2.beginPath(); g2.ellipse(cx, cy+r*0.95, r*0.9, r*0.32, 0, 0, 7); g2.fill();
+
+    /* рога — чёрные с белым контуром */
+    g2.fillStyle = '#0a0a0c';
+    g2.strokeStyle = '#ffffff';
+    g2.lineWidth = 1.6;
+
+    g2.beginPath();
+    g2.moveTo(cx - r*0.62, cy - r*0.55);
+    g2.lineTo(cx - r*1.15, cy - r*1.55);
+    g2.lineTo(cx - r*0.15, cy - r*0.95);
+    g2.closePath(); g2.fill(); g2.stroke();
+
+    g2.beginPath();
+    g2.moveTo(cx + r*0.62, cy - r*0.55);
+    g2.lineTo(cx + r*1.15, cy - r*1.55);
+    g2.lineTo(cx + r*0.15, cy - r*0.95);
+    g2.closePath(); g2.fill(); g2.stroke();
+
+    /* тушка: чёрный круг с белой обводкой */
+    g2.fillStyle = '#0a0a0c';
+    g2.beginPath(); g2.arc(cx, cy, r, 0, 7); g2.fill();
+
+    g2.strokeStyle = '#ffffff';
+    g2.lineWidth = 2;
+    g2.beginPath(); g2.arc(cx, cy, r, 0, 7); g2.stroke();
+
+    /* три отростка снизу */
+    g2.lineWidth = 1.6;
+    for (let k=-1;k<=1;k++){
+      g2.beginPath();
+      g2.moveTo(cx + k*r*0.5, cy + r*0.85);
+      g2.lineTo(cx + k*r*0.62, cy + r*1.38);
+      g2.stroke();
+    }
+  }
+}
+
+/* пуля: яркое ядро, свечение и затухающий след */
+function drawBullets(){
+  for (const b of G.bullets){
+    const n = b.trail.length / 2;
+    for (let i = 0; i < n; i++){
+      const k = i / Math.max(1, n);
+      g2.globalAlpha = 0.10 + k*0.55;
+      g2.fillStyle = k > .65 ? '#d6ecff' : '#3d8ef0';
+      const r = 1.4 + k*3.2;
+      g2.fillRect(b.trail[i*2] - r/2, b.trail[i*2+1] - r/2, r, r);
+    }
+    g2.globalAlpha = 1;
+
+    const pulse = 0.75 + 0.25*Math.sin(performance.now()/45);
+    const gr = g2.createRadialGradient(b.x, b.y, 0, b.x, b.y, 13*pulse);
+    gr.addColorStop(0,    'rgba(255,255,255,1)');
+    gr.addColorStop(0.28, 'rgba(160,220,255,.95)');
+    gr.addColorStop(0.6,  'rgba(60,140,255,.5)');
+    gr.addColorStop(1,    'rgba(20,60,200,0)');
+    g2.fillStyle = gr;
+    g2.beginPath(); g2.arc(b.x, b.y, 13*pulse, 0, 7); g2.fill();
+
+    g2.fillStyle = '#eaf4ff';
+    g2.beginPath(); g2.arc(b.x, b.y, 2.8, 0, 7); g2.fill();
+  }
+}
+
+function drawParticles(){
+  for (const p of G.particles){
+    const a = clamp(p.life/p.max, 0, 1);
+    g2.globalAlpha = a;
+    g2.fillStyle = p.col;
+    g2.fillRect(p.x - p.r/2, p.y - p.r/2, p.r, p.r);
+  }
+  g2.globalAlpha = 1;
+}
+
+/* Детерминированное «случайное» от двух чисел.
+   Нужно узору проплешин: если брать Math.random(), полосы будут
+   мерцать и дёргаться вместо того, чтобы ехать ровно. */
+function seedOf(a, b){
+  let h = (a*374761393 + b*668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return Math.abs(h ^ (h >>> 16));
+}
+
+function render(){
+  const t = performance.now()/1000;
+
+  g2.setTransform(1,0,0,1,0,0);
+  g2.fillStyle = '#07060a';
+  g2.fillRect(0,0,W,H);
+
+  /* тряска */
+  const sh = G.shake;
+  const ox = sh ? (Math.random()*2-1)*sh : 0;
+  const oy = sh ? (Math.random()*2-1)*sh : 0;
+
+  g2.save();
+  g2.translate(ox, oy);
+
+  /* арена */
+  g2.drawImage(arena, 0, 0);
+
+  drawObjects();
+  drawHunters();
+  if (G.state !== 'over') drawSnake();
+  drawBullets();
+  drawParticles();
+
+  /* ---------------- РАДУЖНЫЕ СТЕНЫ ---------------- */
+  /* кайма перерисовывается каждый кадр поверх статичной арены */
+  drawRainbowEdges(t);
+
+  /* сетка-разметка поверх, еле заметная */
+  g2.strokeStyle = 'rgba(120,180,90,.055)';
+  g2.lineWidth = 1;
+  g2.beginPath();
+  for (let x=0;x<=COLS;x++){ g2.moveTo(x*TILE+.5, 0); g2.lineTo(x*TILE+.5, ARENA_H); }
+  for (let y=0;y<=ROWS;y++){ g2.moveTo(0, y*TILE+.5); g2.lineTo(ARENA_W, y*TILE+.5); }
+  g2.stroke();
+
+  /* ───────────────────────── ДВОЕНИЕ В ГЛАЗАХ ─────────────────────────
+     Раньше здесь копировался только фон arena, поэтому двоились стены,
+     а змейка, Враги и пули оставались чёткими — эффекта не получалось.
+
+     Теперь берём СНИМОК ВСЕЙ СЦЕНЫ и накладываем его ещё три раза
+     со сдвигом. Двоится всё разом: змейка, Враги, блоки, пули, искры.
+     Экран при этом не делится — просто картинка плывёт и троится. */
+  /* ─── ГОЛОД: красная виньетка по краям, пульсирует к концу ───
+     Рисуем ДО двоения и вспышек, чтобы не перекрывать эффекты событий. */
+  if (G.state === 'play' && G.hunger <= 10){
+    const k = clamp(1 - G.hunger/10, 0, 1);          /* 0 вначале, 1 к смерти */
+    const pulse = 0.55 + 0.45 * Math.sin(performance.now()/1000 * (4 + k*7));
+    const a = (0.10 + k*0.30) * pulse;
+
+    const vg = g2.createRadialGradient(
+      ARENA_W/2, ARENA_H/2, Math.min(ARENA_W, ARENA_H)*0.30,
+      ARENA_W/2, ARENA_H/2, Math.max(ARENA_W, ARENA_H)*0.62
+    );
+    vg.addColorStop(0, 'rgba(255,40,16,0)');
+    vg.addColorStop(1, 'rgba(255,40,16,' + a.toFixed(3) + ')');
+    g2.fillStyle = vg;
+    g2.fillRect(0, 0, ARENA_W, ARENA_H);
+  }
+
+  if (G.double > 0){
+    const fade = Math.min(1, G.double/2.5);
+    const tt = performance.now()/1000;
+    const amp = 22 * fade;
+
+    /* сдвиги качаются в противофазе — двойник «дышит» вокруг картинки */
+    const dx = Math.sin(tt*2.3) * amp;
+    const dy = Math.cos(tt*1.7) * amp * 0.65;
+
+    /* снимаем то, что уже нарисовано */
+    const snap = doubleLayer();
+    const sc = snap.getContext('2d');
+    sc.setTransform(1,0,0,1,0,0);
+    sc.clearRect(0, 0, ARENA_W, ARENA_H);
+    sc.drawImage(cv, 0, 0, ARENA_W, ARENA_H, 0, 0, ARENA_W, ARENA_H);
+
+    g2.save();
+    g2.globalCompositeOperation = 'screen';
+
+    /* второй слой — основной двойник */
+    g2.globalAlpha = 0.55 * fade;
+    g2.drawImage(snap, dx, dy);
+
+    /* третий — в другую сторону, слабее */
+    g2.globalAlpha = 0.32 * fade;
+    g2.drawImage(snap, -dx*0.85, -dy*0.85);
+
+    /* четвёртый — дальний призрак, даёт «троение» */
+    g2.globalAlpha = 0.17 * fade;
+    g2.drawImage(snap, dx*1.7, dy*1.7 + 7);
+
+    g2.restore();
+
+    /* розовая пелена — как расфокус */
+    g2.fillStyle = `rgba(150,50,170,${0.06*fade})`;
+    g2.fillRect(0, 0, ARENA_W, ARENA_H);
+  }
+
+  /* виньетка */
+  const vg = g2.createRadialGradient(ARENA_W/2, ARENA_H/2, ARENA_H*0.28,
+                                     ARENA_W/2, ARENA_H/2, ARENA_H*0.92);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,.72)');
+  g2.fillStyle = vg; g2.fillRect(0,0,ARENA_W,ARENA_H);
+
+  /* мигание света */
+  /* МЕРЦАЮЩИЙ СВЕТ: экран то полностью чёрный, то обычный.
+     Раньше заливка была полупрозрачной, и получалась дрожащая полутьма.
+     Теперь переключение бинарное — либо чернота, либо ничего.
+     Темп держим как раньше, около четырнадцати раз в секунду:
+     чаще — глаз сливает мигание в ровное затемнение. */
+  if (G.flicker > 0){
+    const phase = Math.floor(performance.now() / 72) % 2;
+    if (phase === 0){
+      g2.fillStyle = '#000000';
+      g2.fillRect(0, 0, ARENA_W, ARENA_H);
+    }
+  }
+
+  /* БЕЛЫЙ ШУМ: экран рассыпается на помехи.
+     Дрожащие полосы, поле светлых пикселей и редкие тёмные провалы. */
+  /* ══════════ БЕЛЫЙ ШУМ: РВАНЫЕ ПОЛОСЫ ══════════
+
+     Раньше это была полупрозрачная пелена с рябью: экран мутнел весь
+     разом, но картинка оставалась видна. Теперь наоборот — полосы
+     плотные, за ними не видно ничего, зато в проплешинах и между
+     полосами всё чисто, без дымки.
+
+     ГЕОМЕТРИЯ ПОДОБРАНА ПОД ИГРАБЕЛЬНОСТЬ:
+       8 полос по 22px, шаг около 102px → чистый просвет 80px.
+       Змейка занимает 32px, то есть помещается в просвет с запасом
+       в два с половиной раза и всегда читается.
+
+     Проплешины рвут полосу по горизонтали: 70–190px закрашено,
+     30–85px чисто. В сумме полосы закрывают около 15% экрана —
+     заметно, но не слепота. Узор у каждой полосы свой, иначе они
+     сливались бы в решётку. */
+  if (G.noise > 0){
+    const fade  = Math.min(1, G.noise/2.5);
+    const BANDS = 8;                    /* сколько полос на экране */
+    const BH    = 22;                   /* толщина полосы */
+    const SPD   = 110;                  /* скорость подъёма, px/с */
+
+    const span = ARENA_H + BH*2;        /* путь с запасом за края */
+    const step = span / BANDS;
+    const prog = (performance.now()/1000 * SPD) % step;
+
+    g2.fillStyle = `rgba(255,255,255,${fade})`;
+
+    for (let i = 0; i < BANDS; i++){
+      /* снизу вверх: с ростом prog y уменьшается. Полоса уходит за
+         верхний край и возвращается снизу — стык незаметен, потому
+         что шаг ровный. */
+      const y = ARENA_H + BH - ((i*step + prog) % span);
+      if (y > ARENA_H || y + BH < 0) continue;
+
+      /* у каждой полосы свой сдвиг узора, чтобы проплешины не
+         выстраивались в вертикальные столбцы */
+      let x = -((i*47) % 130);
+      let k = 0;
+
+      while (x < ARENA_W){
+        const seg = 70 + (seedOf(i, k)     % 121);   /* 70..190 */
+        const gap = 30 + (seedOf(i, k + 1) % 56);    /* 30..85  */
+
+        g2.fillRect(x, y, seg, BH);
+
+        x += seg + gap;
+        k += 2;
+      }
+    }
+  }
+
+  /* ТЕМНОТА — ФОНАРИК.
+     Светит узким конусом туда, куда ползёт змейка, и гаснет о стены.
+     Вокруг головы остаётся слабый полумрак, чтобы не слепнуть вплотную. */
+  if (G.dark > 0){
+    const h = G.snake[0];
+    const hx = h ? h.x*TILE + TILE/2 : ARENA_W/2;
+    const hy = h ? h.y*TILE + TILE/2 : ARENA_H/2;
+    const fade = Math.min(1, G.dark/2);
+
+    /* направление взгляда */
+    let dx = G.dir.x, dy = G.dir.y;
+    const dl = Math.hypot(dx, dy) || 1;
+    dx /= dl; dy /= dl;
+    const target = Math.atan2(dy, dx);
+
+    /* плавный доворот конуса: при повороте свет не прыгает рывком */
+    let diff = target - G.lightAng;
+    while (diff >  Math.PI) diff -= Math.PI*2;
+    while (diff < -Math.PI) diff += Math.PI*2;
+    G.lightAng += diff * 0.28;
+    const ang = G.lightAng;
+
+    const REACH = 15.0 * TILE;
+    const HALF  = 0.62;
+
+    const dc = darkLayer();
+    const dg = dc.getContext('2d');
+    dg.setTransform(1,0,0,1,0,0);
+    dg.globalCompositeOperation = 'source-over';
+    dg.clearRect(0, 0, ARENA_W, ARENA_H);
+    dg.fillStyle = `rgba(0,0,0,${0.985*fade})`;
+    dg.fillRect(0, 0, ARENA_W, ARENA_H);
+
+    /* пробиваем конус в темноте */
+    dg.globalCompositeOperation = 'destination-out';
+    const grd = dg.createRadialGradient(hx, hy, TILE*0.4, hx, hy, REACH);
+    grd.addColorStop(0,    'rgba(0,0,0,1)');
+    grd.addColorStop(0.45, 'rgba(0,0,0,0.97)');
+    grd.addColorStop(0.78, 'rgba(0,0,0,0.55)');
+    grd.addColorStop(1,    'rgba(0,0,0,0)');
+    dg.fillStyle = grd;
+    flashlightPath(dg, hx, hy, ang, HALF, REACH);
+    dg.fill();
+
+    /* слабый ореол вокруг головы */
+    const near = dg.createRadialGradient(hx, hy, 0, hx, hy, TILE*1.6);
+    near.addColorStop(0, 'rgba(0,0,0,0.50)');
+    near.addColorStop(1, 'rgba(0,0,0,0)');
+    dg.fillStyle = near;
+    dg.beginPath(); dg.arc(hx, hy, TILE*1.6, 0, 7); dg.fill();
+
+    /* ── ТОЧНАЯ ТЕНЬ ──
+       Все тени заливаются ОДНИМ путём с обычной заливкой (nonzero).
+       Так пересекающиеся тени складываются, а не вычитаются: раньше
+       при evenodd общая область двух теней становилась светлой.
+       Затем из тени вырезаются стены, до которых реально доходит
+       свет — иначе тень соседа гасила бы их. */
+    const shadows = shadowShapes(hx, hy, ang, HALF, REACH);
+    if (shadows.length){
+      dg.globalCompositeOperation = 'source-over';
+      dg.fillStyle = `rgba(0,0,0,${0.985*fade})`;
+      dg.beginPath();
+
+      for (const sh of shadows){
+        const p = sh.poly;
+        if (!p || p.length < 3) continue;
+        dg.moveTo(p[0][0], p[0][1]);
+        for (let k = 1; k < p.length; k++) dg.lineTo(p[k][0], p[k][1]);
+        dg.closePath();
+      }
+      dg.fill();
+
+      /* возвращаем свет на освещённые стены тем же градиентом конуса,
+         чтобы дальние стены были тусклее ближних */
+      let anyVisible = false;
+      dg.beginPath();
+      for (const sh of shadows){
+        if (!sh.visible) continue;
+        const w = sh.wall;
+        dg.rect(w[0], w[1], w[2], w[3]);
+        anyVisible = true;
+      }
+      if (anyVisible){
+        dg.globalCompositeOperation = 'destination-out';
+        dg.fillStyle = grd;
+        dg.fill();
+      }
+    }
+
+    g2.drawImage(dc, 0, 0);
+
+    /* тёплый отблеск самого фонарика */
+    const glow = g2.createRadialGradient(hx, hy, 0, hx, hy, TILE*1.5);
+    glow.addColorStop(0,   `rgba(255,240,190,${0.20*fade})`);
+    glow.addColorStop(0.5, `rgba(255,220,150,${0.08*fade})`);
+    glow.addColorStop(1,   'rgba(255,210,120,0)');
+    g2.fillStyle = glow;
+    g2.beginPath(); g2.arc(hx, hy, TILE*1.5, 0, 7); g2.fill();
+  }
+
+  /* вспышка */
+  if (G.flash > 0){
+    g2.globalAlpha = G.flash;
+    g2.fillStyle = G.flashCol;
+    g2.fillRect(0,0,ARENA_W,ARENA_H);
+    g2.globalAlpha = 1;
+  }
+
+  /* объявление */
+  if (G.ann.dur > 0 && G.ann.t < G.ann.dur){
+    const k = G.ann.t / G.ann.dur;
+    const pop = k < .16 ? k/.16 : 1;
+    const fade = k > .72 ? 1 - (k-.72)/.28 : 1;
+    g2.save();
+    g2.globalAlpha = clamp(fade, 0, 1);
+    g2.translate(ARENA_W/2, ARENA_H*0.20);
+    g2.scale(0.85 + pop*0.15, 0.85 + pop*0.15);
+    g2.textAlign = 'center';
+    g2.font = 'bold 40px "Courier New",monospace';
+    g2.lineWidth = 5; g2.strokeStyle = '#1a0503';
+    g2.strokeText(G.ann.text, 0, 0);
+    g2.fillStyle = G.ann.col;
+    g2.shadowColor = G.ann.col; g2.shadowBlur = 22;
+    g2.fillText(G.ann.text, 0, 0);
+    g2.restore();
+  }
+  g2.restore();
+
+  try { drawHUD(); } catch(e){ /* HUD не должен ронять арену */ }
+
+  /* подсказка, пока не сделан первый ход */
+  if (G.state === 'play' && !G.armed){
+    const p = 0.55 + 0.45*Math.sin(performance.now()/240);
+    g2.save();
+    g2.globalAlpha = p;
+    g2.textAlign = 'center';
+    g2.font = 'bold 28px "Courier New",monospace';
+    g2.lineWidth = 5; g2.strokeStyle = '#0d0503';
+    g2.strokeText('ЖМИ WASD ИЛИ СТРЕЛКИ', ARENA_W/2, ARENA_H*0.60);
+    g2.fillStyle = '#c2d86a';
+    g2.shadowColor = '#c2d86a'; g2.shadowBlur = 16;
+    g2.fillText('ЖМИ WASD ИЛИ СТРЕЛКИ', ARENA_W/2, ARENA_H*0.60);
+    g2.shadowBlur = 0;
+    g2.font = '15px "Courier New",monospace';
+    g2.fillStyle = '#8a7a5c';
+    g2.fillText('змейка не двинется, пока не решишься', ARENA_W/2, ARENA_H*0.60 + 26);
+    g2.restore();
+  }
+}
+
+/* ================================================================ ЭКРАН == */
+/* вписать строку в ширину: режем по символам, но ровно по пикселям,
+   поэтому ни одна буква не пропадаетт и многоточие ставится по делу */
+function fitText(str, maxW){
+  if (!str) return '';
+  if (g2.measureText(str).width <= maxW) return str;
+  let out = str;
+  while (out.length > 1 && g2.measureText(out + '…').width > maxW)
+    out = out.slice(0, -1);
+  return out + '…';
+}
+
+/* контур сердца — общий для HUD и для спрайта на земле */
+function heartPath(g, x, y, r){
+  g.beginPath();
+  g.moveTo(x, y + r*0.35);
+  g.bezierCurveTo(x - r*1.25, y - r*0.55, x - r*0.45, y - r*1.35, x, y - r*0.62);
+  g.bezierCurveTo(x + r*0.45, y - r*1.35, x + r*1.25, y - r*0.55, x, y + r*0.35);
+  g.closePath();
+}
+
+/* сердечко в HUD: full=false — пустой контур */
+function drawHeart(x, y, r, fill, stroke){
+  heartPath(g2, x, y, r);
+  g2.fillStyle = fill;
+  g2.fill();
+  if (stroke){
+    g2.strokeStyle = stroke;
+    g2.lineWidth = 1.5;
+    g2.stroke();
+  }
+}
+
+function drawBar(x, y, w, h, frac, colA, colB, label, value){
+  g2.fillStyle = '#160d0a'; g2.fillRect(x, y, w, h);
+  const grd = g2.createLinearGradient(x, y, x, y+h);
+  grd.addColorStop(0, colB); grd.addColorStop(1, colA);
+  g2.fillStyle = grd;
+  g2.fillRect(x+2, y+2, Math.max(0, (w-4)*clamp(frac,0,1)), h-4);
+  g2.strokeStyle = '#5c4a2a'; g2.lineWidth = 2;
+  g2.strokeRect(x+.5, y+.5, w-1, h-1);
+  g2.fillStyle = 'rgba(255,255,255,.18)';
+  g2.fillRect(x+2, y+2, Math.max(0,(w-4)*clamp(frac,0,1)), 3);
+  g2.font = 'bold 11px "Courier New",monospace';
+  g2.textAlign = 'left';
+  g2.fillStyle = '#c9a06a';
+  g2.fillText(label, x+5, y+h-6);
+  g2.textAlign = 'right';
+  g2.fillStyle = '#f0e0c0';
+  g2.fillText(value, x+w-5, y+h-6);
+}
+
+function drawHUD(){
+  const y0 = ARENA_H;
+  g2.fillStyle = '#0d0808';
+  g2.fillRect(0, y0, W, HUD_H);
+  /* нарощенные «металлические» плашки */
+  g2.fillStyle = '#1a1210';
+  g2.fillRect(0, y0, W, 3);
+  g2.fillStyle = '#3a2418';
+  g2.fillRect(0, y0+3, W, 2);
+
+  /* СЕРДЦА: белые значки, пустые — контуром */
+  g2.font = 'bold 12px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a';
+  g2.fillText('СЕРДЦА', 16, y0+16);
+
+  /* Сердец всего три, поэтому каждое можно сделать крупнее —
+     видно с одного взгляда, не приходится считать мелочь. */
+  for (let i = 0; i < MAX_HEARTS; i++){
+    const hx = 26 + i * 46;
+    const hy = y0 + 44;
+    const full = i < G.hp;
+
+    /* потерянное сердце еле тлеет, чтобы было видно, сколько осталось */
+    drawHeart(hx, hy, 16,
+      full ? '#ffffff' : 'rgba(255,255,255,.07)',
+      full ? '#ffffff' : 'rgba(255,255,255,.30)');
+
+    if (full){
+      g2.save();
+      g2.shadowColor = '#ffffff';
+      g2.shadowBlur = 14;
+      heartPath(g2, hx, hy, 16);
+      g2.strokeStyle = 'rgba(255,255,255,.85)';
+      g2.lineWidth = 1.5;
+      g2.stroke();
+      g2.restore();
+    }
+  }
+
+  g2.textAlign = 'left';
+
+  /* ПАТРОНЫ + перезарядка */
+  g2.font = 'bold 13px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a';
+  g2.fillText('ЭНЕРГИЯ', 218, y0+28);
+  g2.font = 'bold 26px "Courier New",monospace';
+  g2.fillStyle = G.ammo > 0 ? '#ffcf3c' : '#7a4a2a';
+  g2.fillText(String(G.ammo), 218, y0+55);
+  const w = 72;
+  if (G.shootCd > 0){
+    g2.fillStyle = '#2a1a10'; g2.fillRect(218, y0+61, w, 5);
+    g2.fillStyle = '#ff8a3c';
+    g2.fillRect(218, y0+61, w * clamp(1 - G.shootCd/2.0, 0, 1), 5);
+  } else {
+    g2.fillStyle = '#3f6b1e';
+    g2.font = 'bold 10px "Courier New",monospace';
+    g2.fillText('ГОТОВ', 218, y0+66);
+  }
+
+  /* ОЧКИ */
+  g2.font = 'bold 13px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a'; g2.fillText('ОЧКИ', 322, y0+28);
+  g2.font = 'bold 26px "Courier New",monospace';
+  g2.fillStyle = '#ffcf3c';
+  g2.shadowColor = '#ffcf3c'; g2.shadowBlur = 10;
+  g2.fillText(String(G.score), 322, y0+55);
+  g2.shadowBlur = 0;
+
+  /* ДЛИНА */
+  g2.font = 'bold 13px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a'; g2.fillText('ДЛИНА', 436, y0+28);
+  g2.font = 'bold 26px "Courier New",monospace';
+  g2.fillStyle = '#8fe25c';
+  g2.fillText(String(G.snake.length), 436, y0+55);
+
+  /* ЭТАП */
+  g2.font = 'bold 13px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a'; g2.fillText('ЭТАП', 540, y0+28);
+  g2.font = 'bold 26px "Courier New",monospace';
+  g2.fillStyle = '#ff8a3c';
+  g2.fillText(String(Math.max(1, G.level)), 540, y0+55);
+
+  /* ДО ЭТАПА */
+  g2.font = 'bold 13px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a'; g2.fillText('ДО ЭТАПА', 618, y0+28);
+  const secs = Math.max(0, Math.ceil(G.escT));
+  g2.font = 'bold 26px "Courier New",monospace';
+  g2.fillStyle = secs <= 8 ? '#ff3b18' : '#c2d86a';
+  g2.fillText(secs + 'с', 618, y0+55);
+
+  /* ПОРЧА: показываем НАЗВАНИЕ события и что оно сделало.
+     Раньше строка резалась посимвольно и часть букв пропареныла —
+     теперь текст вписывается в свою колонку по реальной ширине. */
+  g2.font = 'bold 13px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a'; g2.fillText('СОБЫТИЕ', 722, y0+26);
+
+  const colX  = 722;
+  const colW  = W - colX - 16;              /* сколько реально влезает */
+
+  g2.font = 'bold 15px "Courier New",monospace';
+  g2.fillStyle = '#c06cff';
+  const cname = G.corrName || 'тихо';
+  g2.fillText(fitText(cname, colW), colX, y0+46);
+
+  if (G.corrDesc){
+    g2.font = '12px "Courier New",monospace';
+    g2.fillStyle = '#8a6cb0';
+    g2.fillText(fitText(G.corrDesc, colW), colX, y0+64);
+  }
+
+  /* СЛОЖНОСТЬ — с пояснением, иначе висит просто название */
+  /* MODES[G.modeIdx] может оказаться пустым, если индекс побился.
+     Берём первый режим как запасной: лучше показать неверную
+     подпись, чем уронить весь кадр и оставить игрока с мёртвым
+     экраном. */
+  const md = MODES[G.modeIdx] || MODES[0];
+  g2.font = 'bold 12px "Courier New",monospace';
+  g2.fillStyle = '#c9a06a';
+  g2.fillText('сложность:', colX, y0+84);
+  g2.fillStyle = md.col;
+  g2.fillText(fitText(md.name, colW), colX, y0+98);
+
+  /* ── ГОЛОД: полоса под счётчиком этапа. Краснеет и мигает к концу ── */
+  {
+    const bx = 618, by = y0+70, bw = 168, bh = 9;
+    const frac = clamp(G.hunger / HUNGER_MAX, 0, 1);
+    const low  = G.hunger <= 10;
+    const crit = G.hunger <= 5;
+
+    g2.font = 'bold 12px "Courier New",monospace';
+    g2.textAlign = 'left';
+    g2.fillStyle = low ? '#ff8a3c' : '#c9a06a';
+    g2.fillText('СЫТОСТЬ', bx, by - 4);
+
+    g2.fillStyle = '#160d0a'; g2.fillRect(bx, by, bw, bh);
+
+    /* мигание на последних секундах — предупреждение видно боковым зрением */
+    const show = crit ? (Math.floor(performance.now()/140) % 2 === 0) : true;
+
+    if (show){
+      const colA = crit ? '#ff2a10' : low ? '#ff8a3c' : '#7cf0ff';
+      const colB = crit ? '#ff8a3c' : low ? '#ffcf3c' : '#c2f4ff';
+      const grd = g2.createLinearGradient(bx, by, bx, by+bh);
+      grd.addColorStop(0, colB); grd.addColorStop(1, colA);
+      g2.fillStyle = grd;
+      g2.fillRect(bx+1, by+1, Math.max(0, (bw-2)*frac), bh-2);
+
+      if (low){
+        g2.save();
+        g2.shadowColor = colA; g2.shadowBlur = 12;
+        g2.fillRect(bx+1, by+1, Math.max(0, (bw-2)*frac), bh-2);
+        g2.restore();
+      }
+    }
+
+    g2.strokeStyle = low ? 'rgba(255,138,60,.75)' : '#3a2c1c';
+    g2.lineWidth = 1.5;
+    g2.strokeRect(bx+.5, by+.5, bw-1, bh-1);
+
+    /* секунды справа от полосы */
+    g2.font = 'bold 11px "Courier New",monospace';
+    g2.textAlign = 'right';
+    g2.fillStyle = crit ? '#ff2a10' : low ? '#ff8a3c' : '#6b5a48';
+    g2.fillText(Math.ceil(G.hunger) + 'с', bx + bw + 30, by + bh);
+  }
+
+  /* активные эффекты */
+  g2.textAlign = 'right';
+  const eff = [];
+  if (G.speedMul > 1 && G.tempT > 0) eff.push('ЯРОСТЬ ' + G.tempT.toFixed(0) + 'с');
+  if (G.speedMul < 1 && G.tempT > 0) eff.push('ТИШИНА ' + G.tempT.toFixed(0) + 'с');
+  if (G.flicker > 0) eff.push('СВЕТ ' + G.flicker.toFixed(0) + 'с');
+  if (G.mirror > 0)  eff.push('ЗЕРКАЛО ' + G.mirror.toFixed(0) + 'с');
+  if (G.spaghetti > 0) eff.push('СПАГЕТТИ ' + G.spaghetti.toFixed(0) + 'с');
+  if (G.noise > 0)   eff.push('ПОМЕХИ ' + G.noise.toFixed(0) + 'с');
+  if (G.dark > 0)    eff.push('ТЬМА ' + G.dark.toFixed(0) + 'с');
+  if (G.double > 0)  eff.push('ДВОЕНИЕ ' + G.double.toFixed(0) + 'с');
+  if (G.hunters.length) eff.push('ВРАГОВ ' + G.hunters.length);
+  if (G.hunger <= 10) eff.push('ГОЛОДЕН');
+
+  g2.font = 'bold 12px "Courier New",monospace';
+  if (eff.length){
+    g2.fillStyle = '#c06cff';
+    g2.fillText(eff.join('  ·  '), W-16, y0+30);
+  } else {
+    g2.fillStyle = '#6b5a48';
+    g2.font = '11px "Courier New",monospace';
+    g2.fillText('ОТСТРЕЛ САМ   ·   ESC — пауза', W-16, y0+30);
+  }
+  g2.fillStyle = '#6b5a48';
+  g2.font = '11px "Courier New",monospace';
+  g2.fillText('событий пережито: ' + G.corrCount, W-16, y0+68);
+  g2.textAlign = 'left';
+}
+
+/* ================================================================== ВВОД == */
+function setDir(nx, ny){
+  if (G.state !== 'play') return;
+  G.armed = true;
+  /* управление честное: ни один эффект не выворачивает ввод */
+  if (nx === -G.dir.x && ny === -G.dir.y) return;
+  const ref = G.queue.length ? G.queue[G.queue.length-1] : G.dir;
+  if (nx === -ref.x && ny === -ref.y) return;   // 180° отбрасываем сразу
+  if (nx === ref.x && ny === ref.y) return;
+  if (G.queue.length > 2) return;
+  G.queue.push({x:nx, y:ny});
+}
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+
+  if (G.state === 'menu' || G.state === 'over'){
+    if (k === 'enter' || k === ' '){ startRun(); }
+    return;
+  }
+  if (G.state === 'pause'){
+    if (k === 'escape' || k === 'enter'){ resume(); }
+    return;
+  }
+  if (k === 'escape'){ pause(); return; }
+  if (k === 'r' || k === 'к'){ startRun(); return; }   /* R и русская К */
+
+  if (k === 'w' || k === 'arrowup'    || k === 'ц') setDir(0,-1);
+  if (k === 's' || k === 'arrowdown'  || k === 'ы') setDir(0, 1);
+  if (k === 'a' || k === 'arrowleft'  || k === 'ф') setDir(-1,0);
+  if (k === 'd' || k === 'arrowright' || k === 'в') setDir( 1,0);
+});
+
+/* свайпы для телефона */
+let touchStart = null;
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  touchStart = { x:t.clientX, y:t.clientY };
+}, { passive:false });
+
+cv.addEventListener('touchmove', e => e.preventDefault(), { passive:false });
+
+cv.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (!touchStart) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+  touchStart = null;
+  if (Math.hypot(dx,dy) < 22){
+    if (G.state === 'menu' || G.state === 'over') startRun();
+    return;
+  }
+  if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
+  else                             setDir(0, dy > 0 ? 1 : -1);
+}, { passive:false });
+
+/* клик по канвасу — начать/продолжить */
+cv.addEventListener('click', () => {
+  if (G.state === 'menu' || G.state === 'over') startRun();
+  else if (G.state === 'pause') resume();
+});
+
+/* =============================================================== ЭКРАНЫ == */
+const el = id => document.getElementById(id);
+const ovMenu = el('menu'), ovPause = el('pause'), ovOver = el('over');
+
+function hideAll(){ ovMenu.classList.add('hide'); ovPause.classList.add('hide'); ovOver.classList.add('hide'); }
+
+function showMenu(){
+  hideAll(); ovMenu.classList.remove('hide');
+  G.state = 'menu';
+  Music.setReverb(false);
+  refreshPlayer();
+  /* start() сам поймёт, что трек уже играет, и продолжит с того же места */
+  Music.start();
+}
+
+function pause(){
+  if (G.state !== 'play') return;
+  G.state = 'pause';
+  hideAll(); ovPause.classList.remove('hide');
+  Music.setReverb(false);     /* на паузе — обычный, сухой звук */
+  refreshPlayer();            /* панель могла быть закрыта, пока играло */
+}
+
+function resume(){
+  if (G.state !== 'pause') return;
+  hideAll();
+  G.state = 'play';
+  Music.setReverb(true);
+}
+
+const TAUNTS = {
+  wall: ['Стена стояла здесь до тебя. И останется после.',
+         'Кирпич не торговался. Кирпич победил.',
+         'Ты нашёл стену. Стена нашла тебя. Счёт 1:0.',
+         'Говорят, если долго биться в стену, она уступит. Врали.',
+         'Это была не дверь. Это было очень убедительное «нет».'],
+  self: ['Съел свой хвост. Диетологи не одобряют.',
+         'Ты был сам себе обедом. И поваром, и гостем.',
+         'Классика: обогнал себя и проиграл.',
+         'Хвост был твой. Ключевое слово — «был».',
+         'Змеиная версия «сам себя перехитрил».'],
+  barrel: ['Блок стоял на месте. Ты — нет.',
+           'Препятствие оказалось прочнее намерений.',
+           'Ткнулся в блок на полной скорости. Блок не подвинулся.',
+           'Блок даже не заметил. Обидно, правда?',
+           'Ты был быстрее. Блок был твёрже. Твёрдость выиграла.'],
+  hunger: ['Тридцать секунд без сферы. Организм не выдержал, а сферы на карте было хоть отбавляй.',
+           'Ты не сферу искал, ты её игнорировал. Она была рядом. Она всё видела.',
+           'Голодная смерть — это когда сдох не от врага, а от собственной лени.',
+           'Съешь что-нибудь. Нет, не печенье. Сферу.',
+           'Тридцать секунд — это, оказывается, много. Но не для тебя.',
+           'Червь умер от голода. В место, полное еды. Подумай об этом.',
+           'Диетологи в шоке: ты умудрился умереть от голода на поле из еды.',
+           'На самом деле ты не голодал. Ты просто слишком долго думал.',
+           'Сферы звали. Ты не отвечал. Теперь не отвечают тебе.',
+           'Пищевая цепочка — это не про еду в кустах, а про порядок приёма пищи. Ты его проигнорировал.'],
+
+  turn: ['Разворот на 180°. Позвоночник не в курсе.',
+         'Ты решил, что шея — это опция.',
+         'Крутанулся и умер. Хотя бы красиво.',
+         'Резкий разворот. Змеи так не умеют. Ты тоже, как выяснилось.',
+         'Смена направления — это не всегда смена судьбы.'],
+  hunter: ['Враг добрался до хвоста. Хвост не сопротивлялся.',
+           'Тебя догнал Враг. Он бегал, ты ползал.',
+           'Враг подкрался. Обидно, но он хотя бы старался.',
+           'Враг оказался проворнее. Бывает.',
+           'Враг не знал пощады. Ты не знал, что он рядом.']
+};
+
+function showOver(){
+  hideAll();
+  el('overTitle').textContent = pick(['ТЫ ВСЁ','КОНЕЦ ЗАБЕГА','ЗМЕЙКА ПАЛА','УВЫ']);
+  el('scoreBig').textContent = G.score;
+  /* сначала сухая причина, потом шутка — без перемешивания */
+  el('taunt').textContent = G.cause
+    ? (CAUSES[G.cause] || 'смерть: причина неизвестна') +
+      '\n' + pick(TAUNTS[G.cause] || ['Ну, бывает.'])
+    : 'смерть: просто лёг';
+  /* какое событие было активно в момент смерти.
+     G.corrAt — момент запуска, G.corrDur — сколько длится.
+     Если событие закончилось раньше смерти, показывать его неправильно;
+     события без длительности (бонус, завал стен) считаются мгновенными,
+     поэтому для них условие «прошло < длительности» не применяем. */
+  const since = G.time - G.corrAt;
+  const liveNow = G.currCorr && (G.corrDur === 0 || since < G.corrDur)
+                  && G.corrCount > 0;
+
+  el('stats').innerHTML =
+    'длина: <b style="color:#8fe25c">' + G.snake.length + '</b> &nbsp;·&nbsp; ' +
+    'шагов: <b style="color:#c9a06a">' + G.steps + '</b> &nbsp;·&nbsp; ' +
+    'прожито: <b style="color:#c9a06a">' + G.time.toFixed(1) + 'с</b><br>' +
+    'Врагов убито: <b style="color:#ffffff">' + G.kills + '</b> &nbsp;·&nbsp; ' +
+    'событий пережито: <b style="color:#c06cff">' + G.corrCount + '</b> &nbsp;·&nbsp; ' +
+    'сложность: <b style="color:' + (MODES[G.modeIdx] || MODES[0]).col + '">' + (MODES[G.modeIdx] || MODES[0]).name + '</b><br>' +
+    'умер во время: <b style="color:' + (liveNow ? G.corrCol : '#6a5a48') + '">' +
+      (liveNow ? G.corrName : 'тишины') + '</b>';
+
+  ovOver.classList.remove('hide');
+}
+
+/* ======================================================== ВЫБОР КАРТЫ == */
+function setMap(i){
+  G.mapIdx = clamp(i, 0, MAPS.length - 1);
+  document.querySelectorAll('.mapbtn').forEach(b => {
+    b.classList.toggle('on', parseInt(b.dataset.m, 10) === G.mapIdx);
+  });
+  applyMapTextures(MAPS[G.mapIdx].id);
+  try { localStorage.setItem('doomSnakeMap', String(G.mapIdx)); } catch(e){}
+}
+
+/* ---------------------------------------------------- выбор режима скорости */
+function setMode(i){
+  /* Проверяем вход. Раньше сюда могло прийти NaN: слушатель висел
+     на классе .mode, а его носила и кнопка режима плеера, у которой
+     нет data-i. clamp(NaN) возвращал NaN, G.modeIdx становился NaN,
+     MODES[NaN] — undefined, и drawHUD падал на md.col каждый кадр. */
+  const n = parseInt(i, 10);
+  if (!Number.isFinite(n)) return;
+
+  G.modeIdx = clamp(n, 0, MODES.length - 1);
+  document.querySelectorAll('.mode').forEach(b => {
+    b.classList.toggle('on', parseInt(b.dataset.i, 10) === G.modeIdx);
+  });
+  try { localStorage.setItem('doomSnakeMode', String(G.modeIdx)); } catch(e){}
+}
+
+document.querySelectorAll('.mode').forEach(b => {
+  b.addEventListener('click', e => {
+    e.stopPropagation();
+    unlockAudio();
+    setMode(parseInt(b.dataset.i, 10));
+    Snd.unlock(); Snd.turn();
+  });
+});
+
+/* выбранный режим запоминается между запусками */
+try {
+  const saved = localStorage.getItem('doomSnakeMode');
+  if (saved !== null) G.modeIdx = clamp(parseInt(saved, 10) || 0, 0, MODES.length - 1);
+} catch(e){}
+setMode(G.modeIdx);
+
+
+
+/* кнопки */
+/* Порядок важен: сначала меняем состояние игры, потом трогаем звук.
+   Раньше unlockAudio() стоял первым, и любая заминка в аудио могла
+   не пустить выполнение до startRun() — игра просто не начиналась.
+   Теперь звук вызывается под try и уже после смены экрана. */
+function bindScreenBtn(id, action){
+  const b = el(id);
+  if (!b) return;
+  b.addEventListener('click', e => {
+    e.stopPropagation();
+    action();
+    try { unlockAudio(); } catch(err){}
+  });
+  ['pointerdown','touchstart','mousedown'].forEach(ev =>
+    b.addEventListener(ev, e => e.stopPropagation()));
+}
+
+bindScreenBtn('startBtn', startRun);
+bindScreenBtn('resumeBtn', resume);
+bindScreenBtn('quitBtn',   showMenu);
+bindScreenBtn('againBtn',  startRun);
+bindScreenBtn('menuBtn',   showMenu);
+
+/* ============================================================== НАСТРОЙКИ ==
+   Громкость и вкл/выкл для звуков. Состояние живёт в localStorage,
+   поэтому выбранный уровень сохраняется между запусками.
+   ========================================================================== */
+const SET = {
+  sfxOn: true,  sfxVol: 0.70,
+  musOn: true,  musVol: 0.55
+};
+
+function saveSettings(){
+  try { localStorage.setItem('doomSnakeSettings', JSON.stringify(SET)); } catch(e){}
+}
+
+function loadSettings(){
+  try {
+    const raw = localStorage.getItem('doomSnakeSettings');
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    if (typeof o.sfxOn  === 'boolean') SET.sfxOn  = o.sfxOn;
+    if (typeof o.musOn  === 'boolean') SET.musOn  = o.musOn;
+    if (typeof o.sfxVol === 'number')  SET.sfxVol = clamp(o.sfxVol, 0, 1);
+    if (typeof o.musVol === 'number')  SET.musVol = clamp(o.musVol, 0, 1);
+  } catch(e){}
+}
+
+/* применить настройки к движкам и обновить вид элементов */
+function applySettings(){
+  Snd.setOn(SET.sfxOn && SET.sfxVol > 0);
+  Snd.setVolume(SET.sfxVol);
+  Music.setVolume(SET.musOn ? SET.musVol : 0);
+
+  const swSfx = el('swSfx');
+  if (swSfx){
+    swSfx.textContent = SET.sfxOn ? 'ВКЛ' : 'ВЫКЛ';
+    swSfx.classList.toggle('off', !SET.sfxOn);
+  }
+  const swMus = el('swMus');
+  if (swMus){
+    swMus.textContent = SET.musOn ? 'ВКЛ' : 'ВЫКЛ';
+    swMus.classList.toggle('off', !SET.musOn);
+  }
+
+  const vS = el('volSfx');
+  if (vS){ vS.value = Math.round(SET.sfxVol * 100);
+           vS.classList.toggle('off', !SET.sfxOn); }
+  const vM = el('volMus');
+  if (vM){ vM.value = Math.round(SET.musVol * 100);
+           vM.classList.toggle('off', !SET.musOn); }
+
+  /* проценты и тумблер звуков есть дважды: в лобби и в паузе */
+  const sfxTxt = SET.sfxOn ? Math.round(SET.sfxVol*100) + '%' : '—';
+  const nS = el('valSfx'), nS2 = el('valSfx2');
+  if (nS)  nS.textContent  = sfxTxt;
+  if (nS2) nS2.textContent = sfxTxt;
+
+  const swS2 = el('swSfx2');
+  if (swS2){
+    swS2.textContent = SET.sfxOn ? 'ВКЛ' : 'ВЫКЛ';
+    swS2.classList.toggle('off', !SET.sfxOn);
+  }
+  const vS2 = el('volSfx2');
+  if (vS2){ vS2.value = Math.round(SET.sfxVol * 100);
+            vS2.classList.toggle('off', !SET.sfxOn); }
+
+  /* пара «громкость музыки» есть дважды: в лобби и в меню паузы */
+  const nM = el('valMus'), nM2 = el('valMus2');
+  const txt = SET.musOn ? Math.round(SET.musVol*100) + '%' : '—';
+  if (nM)  nM.textContent  = txt;
+  if (nM2) nM2.textContent = txt;
+
+  const swM2 = el('swMus2');
+  if (swM2){
+    swM2.textContent = SET.musOn ? 'ВКЛ' : 'ВЫКЛ';
+    swM2.classList.toggle('off', !SET.musOn);
+  }
+  const vM2 = el('volMus2');
+  if (vM2){ vM2.value = Math.round(SET.musVol * 100);
+            vM2.classList.toggle('off', !SET.musOn); }
+}
+
+/* ============================================ ГЛОБАЛЬНЫЙ ЗАПУСК МУЗЫКИ ==
+   Браузер разрешает звук только внутри обработчика жеста. Раньше
+   unlockAudio() висел только на кнопках — клик по пустому месту
+   ничего не запускал, и музыка молчала, пока не тронешь ползунок.
+   Теперь слушаем документ целиком и добиваем запуск, пока не заиграет. */
+['pointerdown','pointerup','click','keydown','touchstart','touchend'].forEach(ev => {
+  document.addEventListener(ev, () => {
+    /* Жест — единственный момент, когда браузер разрешает звук.
+       Поэтому здесь ВСЕГДА будим контекст и просим запуск:
+       start() сам отсечёт дубли, если трек действительно звучит. */
+    try { Snd.unlock(); } catch(e){}
+    try {
+      if (Music){
+        Music.resumeCtx();
+        Music.start();
+      }
+    } catch(e){}
+  }, { passive:true, capture:true });
+});
+
+/* ==================================================== ПОДКЛЮЧЕНИЕ НАСТРОЕК == */
+loadSettings();
+
+el('swSfx').addEventListener('click', e => {
+  e.stopPropagation();
+  unlockAudio();
+  SET.sfxOn = !SET.sfxOn;
+  if (SET.sfxOn) Snd.unlock();
+  applySettings(); saveSettings();
+  if (SET.sfxOn) Snd.pick();          /* слышно, что включилось */
+});
+
+
+const volSfx = el('volSfx');
+volSfx.addEventListener('input', e => {
+  e.stopPropagation();
+  SET.sfxVol = clamp(parseInt(volSfx.value, 10) / 100, 0, 1);
+  if (SET.sfxVol > 0 && !SET.sfxOn) SET.sfxOn = true;  /* потянул — хочет звук */
+  applySettings();
+});
+volSfx.addEventListener('change', e => {
+  e.stopPropagation();
+  saveSettings();
+  Snd.unlock(); Snd.pick();           /* проверить громкость на слух */
+});
+['pointerdown','touchstart','mousedown'].forEach(ev => {
+  volSfx.addEventListener(ev, e => e.stopPropagation());
+});
+
+el('swMus').addEventListener('click', e => {
+  e.stopPropagation();
+  unlockAudio();
+  SET.musOn = !SET.musOn;
+  if (SET.musOn){ Snd.unlock(); Music.start(); }
+  applySettings(); saveSettings();
+});
+
+const volMus = el('volMus');
+volMus.addEventListener('input', e => {
+  e.stopPropagation();
+  SET.musVol = clamp(parseInt(volMus.value, 10) / 100, 0, 1);
+  if (SET.musVol > 0 && !SET.musOn){ SET.musOn = true; Music.start(); }
+  applySettings();
+});
+volMus.addEventListener('change', e => {
+  e.stopPropagation();
+  saveSettings();
+});
+['pointerdown','touchstart','mousedown'].forEach(ev => {
+  volMus.addEventListener(ev, e => e.stopPropagation());
+});
+
+/* ── те же регуляторы в меню паузы ── */
+const swMus2 = el('swMus2');
+swMus2.addEventListener('click', e => {
+  e.stopPropagation();
+  unlockAudio();
+  SET.musOn = !SET.musOn;
+  if (SET.musOn){ Snd.unlock(); Music.start(); }
+  applySettings(); saveSettings();
+});
+
+const volMus2 = el('volMus2');
+volMus2.addEventListener('input', e => {
+  e.stopPropagation();
+  SET.musVol = clamp(parseInt(volMus2.value, 10) / 100, 0, 1);
+  if (SET.musVol > 0 && !SET.musOn){ SET.musOn = true; Music.start(); }
+  applySettings();
+});
+volMus2.addEventListener('change', e => {
+  e.stopPropagation();
+  saveSettings();           /* громкость переживает выход в лобби */
+});
+['pointerdown','touchstart','mousedown'].forEach(ev => {
+  volMus2.addEventListener(ev, e => e.stopPropagation());
+});
+
+/* ── звуки в меню паузы ──
+   Раньше здесь регулировалась только музыка: убавить выстрелы и удары
+   прямо из игры было нельзя, приходилось выходить в лобби. */
+const swSfx2 = el('swSfx2');
+swSfx2.addEventListener('click', e => {
+  e.stopPropagation();
+  unlockAudio();
+  SET.sfxOn = !SET.sfxOn;
+  if (SET.sfxOn) Snd.unlock();
+  applySettings(); saveSettings();
+  if (SET.sfxOn) Snd.pick();     /* проверка громкости на слух */
+});
+
+const volSfx2 = el('volSfx2');
+volSfx2.addEventListener('input', e => {
+  e.stopPropagation();
+  SET.sfxVol = clamp(parseInt(volSfx2.value, 10) / 100, 0, 1);
+  if (SET.sfxVol > 0 && !SET.sfxOn) SET.sfxOn = true;   /* потянул — хочет звук */
+  applySettings();
+});
+volSfx2.addEventListener('change', e => {
+  e.stopPropagation();
+  saveSettings();            /* громкость переживает выход в лобби */
+  Snd.unlock(); Snd.pick();
+});
+['pointerdown','touchstart','mousedown'].forEach(ev => {
+  volSfx2.addEventListener(ev, e => e.stopPropagation());
+});
+
+/* ══════════════════════ СВОЯ МУЗЫКА ══════════════════════
+   Кнопка выбора mp3, три переключателя источника и обновление
+   подписи «Играет: …» во всех местах сразу. */
+
+/* ══════════════════ СВОЯ МУЗЫКА + ПЛЕЕР ══════════════════
+   Блоки есть в двух местах: лобби и меню паузы. Элементы
+   различаются суффиксом: pSeek в лобби, pSeek2 в паузе.
+   Логика одна, навешивается на обе копии.
+
+   Состояние живёт в Music, а не в интерфейсе, поэтому при
+   переходе «игра → пауза → лобби» ничего не сбивается:
+   позиция, режим и выбранный трек сохраняются. */
+
+/* секунды → «2:03» */
+function fmt(sec){
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+/* Одна и та же петля для «случайная» и «одна и та же».
+   Различаются только цифрой 1 в правом нижнем углу.
+   Текстовые стрелки, а не эмодзи: эмодзи рисуется цветным
+   смайликом и выбивается из монохромной панели. */
+const MODE_ICON = {
+  all:     '&#8635;',            /* по порядку */
+  shuffle: '&#8646;',            /* случайная */
+  one:     '&#8635;<i>1</i>'     /* одна и та же: та же петля с единицей */
+};
+const MODE_HINT = {
+  all:     'по порядку',
+  shuffle: 'случайная',
+  one:     'одна и та же'
+};
+
+/* ── один экземпляр плеера ── */
+function makePlayerUi(sfx){
+  const ui = {
+    seek:  el('pSeek'  + sfx),
+    play:  el('pPlay'  + sfx),
+    now:   el('tNow'   + sfx),
+    left:  el('tLeft'  + sfx),
+    total: el('tTotal' + sfx),
+    prev:  el('pPrev'  + sfx),
+    next:  el('pNext'  + sfx),
+    mode:  el('mCycle' + sfx),
+    seeking: false
+  };
+
+  if (ui.seek){
+    /* пока тянем ползунок — показываем выбранное время,
+       трек не дёргаем: иначе он перезапускался бы на каждом пикселе */
+    ui.seek.addEventListener('input', e => {
+      e.stopPropagation();
+      ui.seeking = true;
+      const d = Music.duration;
+      if (d > 0){
+        const v = parseInt(ui.seek.value, 10) / 1000;
+        if (ui.now)  ui.now.textContent  = fmt(v * d);
+        if (ui.left) ui.left.textContent = '-' + fmt(Math.max(0, d - v*d));
+      }
+    });
+
+    ui.seek.addEventListener('change', e => {
+      e.stopPropagation();
+      unlockAudio();
+      const d = Music.duration;
+      if (d > 0) Music.seek(parseInt(ui.seek.value, 10) / 1000 * d);
+      ui.seeking = false;
+      syncPlayers();
+    });
+
+    ['pointerdown','touchstart','mousedown'].forEach(ev =>
+      ui.seek.addEventListener(ev, e => e.stopPropagation()));
+  }
+
+  if (ui.play) ui.play.addEventListener('click', e => {
+    e.stopPropagation();
+    unlockAudio();
+    if (Music.paused) Music.resumePlayback();
+    else              Music.pausePlayback();
+    syncPlayers();
+  });
+
+  if (ui.prev) ui.prev.addEventListener('click', e => {
+    e.stopPropagation(); unlockAudio();
+    Music.prevTrack(); syncPlayers();
+  });
+
+  if (ui.next) ui.next.addEventListener('click', e => {
+    e.stopPropagation(); unlockAudio();
+    Music.nextTrack(); syncPlayers();
+  });
+
+  if (ui.mode) ui.mode.addEventListener('click', e => {
+    e.stopPropagation();
+    /* Смена режима — чисто логическая операция. Ни звук, ни сеть
+       тут не нужны, поэтому всё под try: даже если аудио упадёт,
+       интерфейс и игра останутся живыми. */
+    try {
+      Music.cyclePlayMode();
+      syncPlayers();
+    } catch(err){
+      try { console.warn('режим:', err); } catch(_){}
+    }
+    try { unlockAudio(); } catch(err){}
+  });
+
+  /* кнопки не должны дважды запускать глобальную разблокировку */
+  [ui.prev, ui.next, ui.mode, ui.play].forEach(b => {
+    if (!b) return;
+    ['pointerdown','touchstart','mousedown'].forEach(ev =>
+      b.addEventListener(ev, e => e.stopPropagation()));
+  });
+
+  return ui;
+}
+
+const players = [ makePlayerUi(''), makePlayerUi('2') ];
+
+/* ── обновить оба плеера разом ── */
+function syncPlayers(){
+  for (const ui of players){
+    if (ui.play){
+      ui.play.innerHTML = Music.paused ? '&#9654;' : '&#10074;&#10074;';
+      ui.play.title = Music.paused ? 'играть' : 'пауза';
+    }
+    if (ui.mode){
+      const m = Music.playMode;
+      ui.mode.innerHTML = MODE_ICON[m] || MODE_ICON.all;
+      ui.mode.title = MODE_HINT[m] || MODE_HINT.all;
+    }
+  }
+  syncMusicUI();
+}
+
+/* ── каждый кадр: ползунок и время в обоих местах ── */
+function tickPlayers(){
+  const d = Music.duration;
+  const e = Music.elapsed;
+
+  for (const ui of players){
+    if (d <= 0){
+      if (ui.total) ui.total.textContent = '0:00';
+      continue;
+    }
+    if (ui.total) ui.total.textContent = fmt(d);
+    if (ui.seeking) continue;
+
+    if (ui.seek) ui.seek.value = String(Math.round((e / d) * 1000));
+    if (ui.now)  ui.now.textContent  = fmt(e);
+    if (ui.left) ui.left.textContent = '-' + fmt(Math.max(0, d - e));
+  }
+  requestAnimationFrame(tickPlayers);
+}
+
+/* ── обновить панели прямо сейчас ──
+   Вызывается при открытии лобби и паузы: пока панель была скрыта,
+   время шло, и ползунок с цифрами надо догнать. Состояние берём
+   из Music, поэтому обе панели приходят к одному виду. */
+function refreshPlayer(){
+  syncPlayers();
+
+  const d = Music.duration;
+  if (d <= 0) return;
+
+  const e = Music.elapsed;
+
+  for (const ui of players){
+    if (ui.total) ui.total.textContent = fmt(d);
+    if (ui.seek)  ui.seek.value = String(Math.round((e / d) * 1000));
+    if (ui.now)   ui.now.textContent  = fmt(e);
+    if (ui.left)  ui.left.textContent = '-' + fmt(Math.max(0, d - e));
+  }
+}
+
+/* ══════════════════ СВОЯ МУЗЫКА ══════════════════
+   Кнопка выбора файла, переключатели источника и подпись.
+   Блок тоже в двух местах — обрабатываем все найденные. */
+
+function syncMusicUI(){
+  const has = Music.hasUser();
+  const src = Music.source;
+
+  document.querySelectorAll('.addbtn').forEach(b => {
+    b.classList.toggle('hasfile', has);
+    b.textContent = has ? '+ ЗАМЕНИТЬ МУЗЫКУ' : '+ ДОБАВИТЬ МУЗЫКУ';
+  });
+
+  document.querySelectorAll('.musradio').forEach(r => {
+    r.checked = (r.value === src);
+    const lab = r.parentElement;
+    if (lab) lab.classList.toggle('on', r.checked);
+  });
+}
+
+/* провод для пары «кнопка + файл + подпись» */
+function wireMusicBox(btnId, fileId, hintId){
+  const btn  = el(btnId);
+  const file = el(fileId);
+  const hint = el(hintId);
+  if (!btn || !file) return;
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    unlockAudio();
+    file.click();
+  });
+
+  file.addEventListener('change', async e => {
+    e.stopPropagation();
+    const f = file.files && file.files[0];
+    if (!f) return;
+
+    const isMp3 = /\.mp3$/i.test(f.name) || f.type === 'audio/mpeg';
+    if (!isMp3){
+      if (hint){ hint.textContent = 'нужен файл mp3'; hint.classList.add('err'); }
+      return;
+    }
+
+    if (hint){ hint.classList.remove('err'); hint.textContent = 'загружаю…'; }
+
+    try {
+      const r = await Music.loadUserFile(f);
+      if (hint) hint.textContent = 'своя музыка: ' + Math.round(r.seconds) + 'с';
+
+      /* Сразу переключаемся на свою: иначе файл загружен,
+         а играет по-прежнему игровая — выглядит как поломка. */
+      Music.setSource('user');
+      Music.start();
+      syncPlayers();
+    } catch(err){
+      if (hint){ hint.textContent = 'не удалось прочитать mp3'; hint.classList.add('err'); }
+    }
+
+    /* сбрасываем input, чтобы можно было выбрать тот же файл снова */
+    file.value = '';
+  });
+
+  ['pointerdown','touchstart','mousedown'].forEach(ev =>
+    btn.addEventListener(ev, e => e.stopPropagation()));
+}
+
+wireMusicBox('addMusicBtn',  'musicFile',  'musicHint');
+wireMusicBox('addMusicBtn2', 'musicFile2', 'musicHint2');
+
+/* переключатели источника — общие для обеих копий */
+document.querySelectorAll('.musradio').forEach(r => {
+  r.addEventListener('change', e => {
+    e.stopPropagation();
+    if (!r.checked) return;
+    unlockAudio();
+    Music.setSource(r.value);
+    syncPlayers();
+  });
+  ['pointerdown','touchstart','mousedown'].forEach(ev =>
+    r.addEventListener(ev, e => e.stopPropagation()));
+});
+
+/* подпись трека — во всех местах сразу */
+Music.onTitleChange(t => {
+  document.querySelectorAll('.trackname').forEach(b => { b.textContent = t; });
+});
+
+syncPlayers();
+tickPlayers();
+
+applySettings();
+
+
+/* ── РАЗБЛОКИРОВКА ЗВУКА ──────────────────────────────────────────────
+   Браузеры пускают звук только после жеста пользователя.
+
+   Была тонкая ошибка: слушатель висел в фазе ВСПЛЫТИЯ, а ВСЕ кнопки игры
+   вызывают e.stopPropagation() — клик по кнопке до разблокировки не
+   доходил. Работал только клик по пустому месту, где событие никто
+   не гасил.
+
+   Теперь слушаем в фазе ПЕРЕХВАТА на самом документе: она срабатывает
+   раньше обработчиков кнопки, и stopPropagation её не останавливает. */
+function unlockAudio(){
+  try { if (Snd) Snd.unlock(); } catch(e){}
+  try { if (Music) Music.start(); } catch(e){}
+}
+
+['pointerdown','mousedown','pointerup','touchstart','touchend','click','keydown']
+  .forEach(ev => document.addEventListener(ev, unlockAudio, true));
+
+/* страховка: если контекст уснул или запуск сорвался — добиваем,
+   пока музыка не зазвучит. На скрытой вкладке не тратим силы. */
+setInterval(() => {
+  if (Music.playing) return;
+  if (document.visibilityState !== 'visible') return;
+  Music.start();
+}, 700);
+
+/* ── заставка: лобби появляется после первого нажатия ── */
+(function(){
+  const intro = document.getElementById('intro');
+  const menu  = document.getElementById('menu');
+  if (!intro || !menu) return;
+
+  let done = false;
+  function reveal(){
+    if (done) return;
+    done = true;
+    intro.classList.add('gone');
+    menu.classList.remove('hide');
+    menu.classList.add('enter');
+    setTimeout(() => intro.remove(), 500);
+  }
+
+  ['pointerdown','keydown','touchstart'].forEach(ev => {
+    window.addEventListener(ev, reveal, { once:true, passive:true });
+  });
+})();
+
+/* ================================================================= ЦИКЛ == */
+let last = performance.now();
+let frames = 0;
+
+function loop(now){
+  /* Следующий кадр планируем ДО работы и оборачиваем её в try.
+     Раньше исключение в update/render убивало requestAnimationFrame,
+     и игра замирала навсегда — кнопки нажимались, но экран стоял. */
+  requestAnimationFrame(loop);
+
+  const dt = Math.min(0.05, (now - last)/1000);
+  last = now;
+
+  try {
+    update(dt);
+    render();
+    drawSpectrum();      /* отдельный канвас — виден и в лобби, и в игре */
+    frames++;
+  } catch(err){
+    /* Один битый кадр не должен стоить игроку всей партии */
+    if (!loop._warned){
+      loop._warned = true;
+      try { console.error('кадр пропущен:', err); } catch(e){}
+    }
+  }
+}
+
+/* =============================================================== СТАРТ == */
+buildArena();
+/* фон лобби: ползущая змейка, чтобы экран не был мёртвым */
+G.snake = [];
+for (let i=0;i<4;i++) G.snake.push({x:8-i, y:(ROWS>>1)});
+G.dir = {x:1,y:0};
+showMenu();
+requestAnimationFrame(loop);
+
+
+
+
+
+
+</script>
+</body>
+</html>
